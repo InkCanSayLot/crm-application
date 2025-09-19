@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api';
+// Use relative API paths for Vercel deployment (proxied through vercel.json rewrites)
+// or full URL for local development
+const API_BASE_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004/api');
 
 // Generic API request function with enhanced error handling
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
