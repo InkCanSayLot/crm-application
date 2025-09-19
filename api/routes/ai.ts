@@ -4,10 +4,7 @@
  */
 import axios from 'axios'
 import { Router, type Request, type Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
-
-dotenv.config()
+import { supabaseServiceClient as supabase } from '../config/supabase.ts'
 
 const router = Router()
 
@@ -48,10 +45,7 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || ''
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'openai/gpt-3.5-turbo'
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
 
 /**
  * Chat with AI

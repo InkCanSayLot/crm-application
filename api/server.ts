@@ -7,10 +7,10 @@ import app from './app.ts';
 /**
  * start server with port
  */
-const PORT = process.env.PORT || 3003;
+const port = process.env.PORT || 3004;
 
-const server = app.listen(PORT, () => {
-  console.log(`Server ready on port ${PORT}`);
+const server = app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
 });
 
 /**

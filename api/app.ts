@@ -8,9 +8,6 @@ import express, {
   type NextFunction,
 } from 'express'
 import cors from 'cors'
-import path from 'path'
-import dotenv from 'dotenv'
-import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.ts'
 import crmRoutes from './routes/crm.ts'
 import calendarRoutes from './routes/calendar.ts'
@@ -18,19 +15,12 @@ import journalRoutes from './routes/journal.ts'
 import aiRoutes from './routes/ai.ts'
 import chatRoutes from './routes/chat.ts'
 
-// for esm mode
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-// load env
-dotenv.config()
-
 const app: express.Application = express()
 
 // CORS configuration for production
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://your-app.vercel.app']
+    ? (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'https://your-app.vercel.app').split(',')
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
   optionsSuccessStatus: 200

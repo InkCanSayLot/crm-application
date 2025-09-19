@@ -3,17 +3,9 @@
  * Handle user registration, login, token management, etc.
  */
 import { Router, type Request, type Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
-
-dotenv.config()
+import { supabaseClient as supabase } from '../config/supabase.ts'
 
 const router = Router()
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 /**
  * User Registration

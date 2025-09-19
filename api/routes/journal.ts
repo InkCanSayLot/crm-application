@@ -3,17 +3,9 @@
  * Handle CRUD operations for journal entries
  */
 import { Router, type Request, type Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
-
-dotenv.config()
+import { supabaseServiceClient as supabase } from '../config/supabase.ts'
 
 const router = Router()
-
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 /**
  * Get all journal entries

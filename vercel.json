@@ -24,6 +24,6 @@
   "installCommand": "npm install",
   "framework": "vite",
   "env": {
-    "VITE_API_BASE_URL": "@api_base_url"
+    "VITE_API_BASE_URL": "https://web-production-1e255.up.railway.app/api"
   }
 }
