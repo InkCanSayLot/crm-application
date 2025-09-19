@@ -63,7 +63,7 @@ REDIS_URL=your_redis_url
 ### Step 4: Deploy and Get URL
 
 1. Railway will automatically deploy your application
-2. Once deployed, copy your Railway app URL (e.g., `https://your-app.up.railway.app`)
+2. Once deployed, copy your Railway app URL (e.g., `https://web-production-1e255.up.railway.app`)
 3. Test your API endpoints to ensure they're working
 
 ## Frontend Deployment (Vercel)
@@ -74,7 +74,7 @@ Create a `.env.local` file in your project root (for local development) and conf
 
 ```bash
 # API Configuration
-VITE_API_BASE_URL=https://your-app.up.railway.app/api
+VITE_API_BASE_URL=https://web-production-1e255.up.railway.app/api
 
 # Supabase (if using)
 VITE_SUPABASE_URL=your_supabase_url
@@ -120,7 +120,12 @@ VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
 
 1. In your Vercel project dashboard, go to Settings → Environment Variables
 2. Add all the environment variables from Step 1
-3. Make sure to set them for Production, Preview, and Development environments
+3. **IMPORTANT**: Set `VITE_API_BASE_URL` directly to `https://web-production-1e255.up.railway.app/api`
+   - Do NOT reference a secret called "api_base_url"
+   - Use the "Plain Text" option, not "Secret"
+4. Make sure to set them for Production, Preview, and Development environments
+
+**Note**: If you see an error "Environment Variable 'VITE_API_BASE_URL' references Secret 'api_base_url', which does not exist", delete the existing variable and recreate it with the direct URL value.
 
 ### Step 4: Update CORS Configuration
 
@@ -197,7 +202,7 @@ If you're using Supabase for your database:
 - Check that the backend CORS middleware is properly configured
 
 #### API Connection Issues
-- Verify `VITE_API_BASE_URL` points to your Railway URL
+- Verify `VITE_API_BASE_URL` points to your Railway URL (https://web-production-1e255.up.railway.app/api)
 - Ensure Railway backend is running and accessible
 - Check Railway logs for errors
 
@@ -210,6 +215,11 @@ If you're using Supabase for your database:
 - Ensure all required variables are set in both platforms
 - Check variable names match exactly (case-sensitive)
 - Verify no trailing spaces or quotes
+- **Vercel Secret Reference Error**: If you get "Environment Variable 'VITE_API_BASE_URL' references Secret 'api_base_url', which does not exist":
+  1. Go to Vercel Dashboard → Your Project → Settings → Environment Variables
+  2. Delete the existing `VITE_API_BASE_URL` variable
+  3. Add it again as "Plain Text" with value: `https://web-production-1e255.up.railway.app/api`
+  4. Redeploy your project
 
 ### Useful Commands
 
@@ -221,10 +231,10 @@ railway logs
 vercel logs
 
 # Test API endpoints
-curl https://your-app.up.railway.app/api/health
+curl https://web-production-1e255.up.railway.app/api/health
 
 # Local development with production API
-VITE_API_BASE_URL=https://your-app.up.railway.app/api npm run dev
+VITE_API_BASE_URL=https://web-production-1e255.up.railway.app/api npm run dev
 ```
 
 ## Monitoring and Maintenance

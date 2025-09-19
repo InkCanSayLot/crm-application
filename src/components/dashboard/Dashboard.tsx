@@ -75,11 +75,11 @@ export default function Dashboard() {
     try {
       console.log('Dashboard.tsx - Making API calls...');
       const [crmStatsRes, clientsRes, tasksRes, eventsRes, journalRes] = await Promise.all([
-        fetch('/api/crm/stats'),
-        fetch('/api/crm/clients'),
-        fetch('/api/calendar/tasks'),
-        fetch('/api/calendar/events'),
-        fetch('/api/journal/entries')
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/crm/stats`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/crm/clients`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/tasks`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/events`),
+        fetch(`${import.meta.env.VITE_API_BASE_URL}/journal/entries`)
       ]);
       console.log('Dashboard.tsx - API calls completed');
       console.log('Dashboard.tsx - Response status codes:', {

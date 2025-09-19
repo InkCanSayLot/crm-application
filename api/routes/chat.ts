@@ -3,18 +3,9 @@
  * Handle chat rooms, messages, and real-time communication
  */
 import { Router, type Request, type Response } from 'express'
-import { createClient } from '@supabase/supabase-js'
-import dotenv from 'dotenv'
-
-dotenv.config()
+import { supabaseServiceClient as supabase } from '../config/supabase.ts'
 
 const router = Router()
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 // Get all chat rooms for a user
 router.get('/rooms', async (req: Request, res: Response) => {
