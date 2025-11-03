@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Users, Plus, Filter, Search, Calendar, Clock, User, CheckCircle, Circle, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import AddSharedTaskModal from './AddSharedTaskModal'
 
 interface SharedTask {
   id: string
@@ -179,155 +180,166 @@ const SharedTasksSection: React.FC<SharedTasksSectionProps> = ({ currentUserId }
   }
 
   return (
-    <div className="section-container">
-      {/* Header */}
-      <div className="card-header">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Users className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-primary">Shared Tasks</h2>
-            <span className="badge badge-info">
-              {filteredTasks.length}
-            </span>
-          </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Task</span>
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-standard"
-            />
-          </div>
-
-          {/* Assignment Filter */}
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
-            className="select-standard"
-          >
-            <option value="all">All Tasks</option>
-            <option value="assigned">Assigned to Me</option>
-            <option value="created">Created by Me</option>
-          </select>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="select-standard"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Tasks List */}
-      <div className="card-body">
-        {filteredTasks.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-primary mb-2">No shared tasks found</h3>
-            <p className="text-muted mb-4">
-              {searchTerm || filter !== 'all' || statusFilter !== 'all'
-                ? 'Try adjusting your filters'
-                : 'Create your first shared task to collaborate with your team'}
-            </p>
+    <>
+      <div className="section-container">
+        {/* Header */}
+        <div className="card-header">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <Users className="w-6 h-6 text-primary-600" />
+              <h2 className="text-xl font-semibold text-primary">Shared Tasks</h2>
+              <span className="badge badge-info">
+                {filteredTasks.length}
+              </span>
+            </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="btn-primary"
+              className="btn-primary flex items-center space-x-2"
             >
-              Add Shared Task
+              <Plus className="w-4 h-4" />
+              <span>Add Task</span>
             </button>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredTasks.map(sharedTask => {
-              const task = sharedTask.task
-              if (!task) return null
-              
-              return (
-                <div
-                  key={sharedTask.id}
-                  className="card-container p-4"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <button
-                          onClick={() => {
-                            const newStatus = task.status === 'completed' ? 'pending' : 
-                                           task.status === 'pending' ? 'in_progress' : 'completed'
-                            updateTaskStatus(task.id, newStatus)
-                          }}
-                          className="hover:scale-110 transition-transform"
-                        >
-                          {getStatusIcon(task.status)}
-                        </button>
-                        <h3 className={`font-medium ${task.status === 'completed' ? 'line-through text-muted' : 'text-primary'}`}>
-                          {task.title}
-                        </h3>
-                        <span className={`badge ${getPriorityColor(task.priority)}`}>
-                          {task.priority}
-                        </span>
-                      </div>
-                      
-                      {task.description && (
-                        <p className="text-secondary text-sm mb-3">{task.description}</p>
-                      )}
-                      
-                      <div className="flex items-center space-x-4 text-sm text-muted">
-                        {task.assignee && (
-                          <div className="flex items-center space-x-1">
-                            <User className="w-4 h-4" />
-                            <span>Assigned to {task.assignee.name}</span>
-                          </div>
-                        )}
-                        
-                        {task.due_date && (
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>Due {formatDate(task.due_date)}</span>
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>Created {formatDate(task.created_at)}</span>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="input-standard"
+              />
+            </div>
+
+            {/* Assignment Filter */}
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+              className="select-standard"
+            >
+              <option value="all">All Tasks</option>
+              <option value="assigned">Assigned to Me</option>
+              <option value="created">Created by Me</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="select-standard"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Tasks List */}
+        <div className="card-body">
+          {filteredTasks.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-primary mb-2">No shared tasks found</h3>
+              <p className="text-muted mb-4">
+                {searchTerm || filter !== 'all' || statusFilter !== 'all'
+                  ? 'Try adjusting your filters'
+                  : 'Create your first shared task to collaborate with your team'}
+              </p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary"
+              >
+                Add Shared Task
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredTasks.map(sharedTask => {
+                const task = sharedTask.task
+                if (!task) return null
+                
+                return (
+                  <div
+                    key={sharedTask.id}
+                    className="card-container p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <button
+                            onClick={() => {
+                              const newStatus = task.status === 'completed' ? 'pending' : 
+                                             task.status === 'pending' ? 'in_progress' : 'completed'
+                              updateTaskStatus(task.id, newStatus)
+                            }}
+                            className="hover:scale-110 transition-transform"
+                          >
+                            {getStatusIcon(task.status)}
+                          </button>
+                          <h3 className={`font-medium ${task.status === 'completed' ? 'line-through text-muted' : 'text-primary'}`}>
+                            {task.title}
+                          </h3>
+                          <span className={`badge ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
                         </div>
                         
-                        {sharedTask.shared_user && (
-                          <div className="flex items-center space-x-1">
-                            <Users className="w-4 h-4" />
-                            <span>Shared with {sharedTask.shared_user.name}</span>
-                          </div>
+                        {task.description && (
+                          <p className="text-secondary text-sm mb-3">{task.description}</p>
                         )}
+                        
+                        <div className="flex items-center space-x-4 text-sm text-muted">
+                          {task.assignee && (
+                            <div className="flex items-center space-x-1">
+                              <User className="w-4 h-4" />
+                              <span>Assigned to {task.assignee.name}</span>
+                            </div>
+                          )}
+                          
+                          {task.due_date && (
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>Due {formatDate(task.due_date)}</span>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-4 h-4" />
+                            <span>Created {formatDate(task.created_at)}</span>
+                          </div>
+                          
+                          {sharedTask.shared_user && (
+                            <div className="flex items-center space-x-1">
+                              <Users className="w-4 h-4" />
+                              <span>Shared with {sharedTask.shared_user.name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      <AddSharedTaskModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onTaskAdded={() => {
+          fetchSharedTasks()
+          setShowAddModal(false)
+        }}
+      />
+    </>
   )
 }
 

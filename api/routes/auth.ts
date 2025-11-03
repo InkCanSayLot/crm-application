@@ -3,7 +3,7 @@
  * Handle user registration, login, token management, etc.
  */
 import { Router, type Request, type Response } from 'express'
-import { supabaseClient as supabase } from '../config/supabase.ts'
+import { supabaseClient as supabase } from '../config/supabase'
 
 const router = Router()
 

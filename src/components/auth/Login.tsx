@@ -45,11 +45,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-pink-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
       <div className="card-container w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <LogIn className="w-8 h-8 text-pink-600" />
+          <div className="bg-primary-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <LogIn className="w-8 h-8 text-primary-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
           <p className="text-gray-600">Sign in to Empty Operations CRM</p>
@@ -112,27 +112,27 @@ export default function Login() {
               disabled={loading}
               className="btn-secondary w-full text-left text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="font-medium text-pink-800">William Walsh (CEO)</span>
+              <span className="font-medium text-primary-800">William Walsh (CEO)</span>
               <br />
-              <span className="text-pink-600">william@emptyad.com</span>
+              <span className="text-primary-600">william@emptyad.com</span>
             </button>
             <button
               onClick={() => quickLogin('beck@emptyad.com', 'demo')}
               disabled={loading}
               className="btn-secondary w-full text-left text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="font-medium text-pink-800">Beck Majdell (CGO)</span>
+              <span className="font-medium text-primary-800">Beck Majdell (CGO)</span>
               <br />
-              <span className="text-pink-600">beck@emptyad.com</span>
+              <span className="text-primary-600">beck@emptyad.com</span>
             </button>
             <button
               onClick={() => quickLogin('roman@emptyad.com', 'demo')}
               disabled={loading}
               className="btn-secondary w-full text-left text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span className="font-medium text-pink-800">M.A. Roman (CTO)</span>
+              <span className="font-medium text-primary-800">M.A. Roman (CTO)</span>
               <br />
-              <span className="text-pink-600">roman@emptyad.com</span>
+              <span className="text-primary-600">roman@emptyad.com</span>
             </button>
           </div>
         </div>

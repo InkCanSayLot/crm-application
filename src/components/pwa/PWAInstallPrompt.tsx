@@ -100,10 +100,10 @@ const PWAInstallPrompt: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50">
-      <div className="flex items-start justify-between mb-3">
+    <div className="fixed bottom-standard left-standard right-standard md:left-auto md:right-standard md:w-80 bg-white border border-light rounded-lg shadow-lg p-standard z-50">
+      <div className="flex items-start justify-between mb-compact">
         <div className="flex items-center">
-          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+          <div className="w-10 h-10 bg-primary-500 rounded-lg flex items-center justify-center mr-compact">
             <Download className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -112,24 +112,24 @@ const PWAInstallPrompt: React.FC = () => {
           </div>
         </div>
         <button
-          onClick={handleDismiss}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Dismiss install prompt"
+           onClick={handleDismiss}
+           className="text-gray-400 hover:text-gray-600 p-compact transition-colors"
+           aria-label="Dismiss install prompt"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
       
-      <div className="flex space-x-2">
+      <div className="flex space-x-compact">
         <button
           onClick={handleInstallClick}
-          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          className="flex-1 bg-primary-600 text-white px-standard py-compact rounded-md hover:bg-primary-700 transition-colors font-medium"
         >
           Install App
         </button>
         <button
           onClick={handleDismiss}
-          className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+          className="px-standard py-compact border border-light text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
         >
           Not now
         </button>

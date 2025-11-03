@@ -1,21 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSettings } from '../../contexts/SettingsContext';
-import { crmApi, calendarApi, journalApi, aiApi } from '../../lib/api'
+
+import { crmApi, calendarApi, journalApi } from '../../lib/api'
 import { 
   Users, 
   Calendar, 
   CheckSquare, 
   TrendingUp, 
   Plus,
-  MessageSquare,
   FileText,
   BarChart3,
   Target,
   CheckCircle,
-  DollarSign,
-  Clock
+  DollarSign
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -30,11 +28,7 @@ interface DashboardStats {
   aiInsights?: number;
 }
 
-interface DailyInsight {
-  message: string;
-  priority: 'high' | 'medium' | 'low';
-  type: 'task' | 'opportunity' | 'reminder' | 'insight';
-}
+
 
 interface RecentActivity {
   id: string;
@@ -50,7 +44,8 @@ interface RecentActivity {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { formatCurrency } = useSettings();
+  // Default currency formatting
+  const formatCurrency = (amount: number | undefined | null) => `$${(amount || 0).toLocaleString()}`;
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     activeDeals: 0,
@@ -60,43 +55,65 @@ export default function Dashboard() {
     conversionRate: 0
   });
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
-  const [dailyInsight, setDailyInsight] = useState<DailyInsight | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats()
-    generateDailyInsight()
-  }, [user])
+    let isMounted = true;
+    
+    const initializeDashboard = async () => {
+        // Wait for user to be fully loaded
+        if (!user?.id) {
+          return;
+        }
+      
+      // Add a small delay to ensure authentication is fully settled
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check if component is still mounted before proceeding
+      if (!isMounted) return;
+      
+      try {
+        await fetchStats();
+      } catch (error) {
+        console.error('Error initializing dashboard:', error);
+      }
+    };
+    
+    initializeDashboard();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
 
 
   const fetchStats = async () => {
     console.log('Dashboard.tsx - fetchStats called');
+    
+    // Ensure user is authenticated before making API calls
+    if (!user?.id) {
+      console.log('Dashboard.tsx - User not authenticated, skipping API calls');
+      return;
+    }
+    
     try {
       console.log('Dashboard.tsx - Making API calls...');
-      const [crmStatsRes, clientsRes, tasksRes, eventsRes, journalRes] = await Promise.all([
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/crm/stats`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/crm/clients`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/tasks`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/calendar/events`),
-        fetch(`${import.meta.env.VITE_API_BASE_URL}/journal/entries`)
+      const [crmStats, clients, tasks, events, journalEntries] = await Promise.all([
+        crmApi.getStats(),
+        crmApi.getClients(),
+        calendarApi.getTasks(),
+        calendarApi.getEvents(),
+        journalApi.getEntries()
       ]);
       console.log('Dashboard.tsx - API calls completed');
-      console.log('Dashboard.tsx - Response status codes:', {
-        crmStats: crmStatsRes.status,
-        clients: clientsRes.status,
-        tasks: tasksRes.status,
-        events: eventsRes.status,
-        journal: journalRes.status
+      console.log('Dashboard.tsx - Data received:', {
+        crmStats: !!crmStats,
+        clients: clients?.length || 0,
+        tasks: tasks?.length || 0,
+        events: events?.length || 0,
+        journal: journalEntries?.length || 0
       });
-
-      const [crmStats, clients, tasks, events, journalEntries] = await Promise.all([
-        crmStatsRes.json(),
-        clientsRes.json(),
-        tasksRes.json(),
-        eventsRes.json(),
-        journalRes.json()
-      ]);
 
       // Calculate average mood from journal entries with updated mood values
       const moodValues = { 
@@ -110,16 +127,16 @@ export default function Dashboard() {
         stressed: 0 
       };
       
-      const journalData = journalEntries.data || journalEntries || [];
+      const journalData = Array.isArray(journalEntries) ? journalEntries : ((journalEntries as any)?.data || []);
       const avgMood = journalData.length > 0 
-        ? journalData.reduce((sum: number, entry: any) => sum + (moodValues[entry.mood as keyof typeof moodValues] || 3), 0) / journalData.length
+        ? Array.isArray(journalData) ? journalData.reduce((sum: number, entry: any) => sum + (moodValues[entry.mood as keyof typeof moodValues] || 3), 0) / journalData.length : 3
         : 3;
 
       // Use CRM stats data
-      const crmData = crmStats.data || {};
-      const clientsData = clients.data || clients || [];
-      const tasksData = tasks.data || tasks || [];
-      const eventsData = events.data || events || [];
+      const crmData = (crmStats as any)?.data || crmStats || {};
+      const clientsData = Array.isArray(clients) ? clients : ((clients as any)?.data || []);
+      const tasksData = Array.isArray(tasks) ? tasks : ((tasks as any)?.data || []);
+      const eventsData = Array.isArray(events) ? events : ((events as any)?.data || []);
 
       setStats({
         totalClients: crmData.totalClients || clientsData.length || 0,
@@ -191,35 +208,7 @@ export default function Dashboard() {
     }
   }
 
-  const generateDailyInsight = async () => {
-    try {
-      const response = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: 'You are Empty AI for the Empty CRM Personal system. Based on my CRM data from this system only and current business activities, provide a brief daily insight or recommendation for what I should focus on today. Keep it concise and actionable. Do not reference external CRM systems like Salesforce or HubSpot.',
-          context: []
-        })
-      });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data?.message) {
-          setDailyInsight({
-            message: data.data.message,
-            priority: 'medium',
-            type: 'insight'
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to generate daily insight:', error);
-      // No fallback insight - let it remain null if AI fails
-      setDailyInsight(null);
-    }
-  }
 
   const statCards = [
     {
@@ -247,8 +236,8 @@ export default function Dashboard() {
       name: 'Upcoming Events',
       value: stats.upcomingEvents,
       icon: Calendar,
-      color: 'bg-blue-500',
-      bgColor: 'bg-blue-50'
+      color: 'bg-primary-500',
+      bgColor: 'bg-primary-50'
     },
     {
       name: 'Total Revenue',
@@ -271,9 +260,9 @@ export default function Dashboard() {
       <div className="page-container">
         <div className="loading-skeleton">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-loose mb-8">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="card-container h-32"></div>
+              <div key={i} className="card h-32"></div>
             ))}
           </div>
         </div>
@@ -285,16 +274,16 @@ export default function Dashboard() {
     <div className="page-container">
       {/* Stats Grid */}
       <div className="section-container">
-        <div className="grid-responsive">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-loose">
           {statCards.map((stat) => (
-            <div key={stat.name} className="card-container hover:shadow-md transition-shadow touch-manipulation">
+            <div key={stat.name} className="card card-body hover:shadow-md transition-shadow">
               <div className="flex items-center">
-                <div className={`${stat.bgColor} p-2 sm:p-3 rounded-lg`}>
-                  <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.color.replace('bg-', 'text-')}`} />
+                <div className={`${stat.bgColor} p-compact rounded-lg`}>
+                  <stat.icon className={`w-6 h-6 ${stat.color.replace('bg-', 'text-')}`} />
                 </div>
-                <div className="ml-3 sm:ml-4 min-w-0 flex-1">
-                   <p className="text-xs sm:text-sm font-medium text-secondary truncate">{stat.name}</p>
-                   <p className="text-lg sm:text-2xl font-bold text-primary truncate">{stat.value}</p>
+                <div className="ml-4 min-w-0 flex-1">
+                   <p className="text-sm font-medium text-gray-600 truncate">{stat.name}</p>
+                   <p className="text-2xl font-bold text-gray-900 truncate">{stat.value}</p>
                  </div>
               </div>
             </div>
@@ -302,75 +291,77 @@ export default function Dashboard() {
         </div>
       </div>
 
+
+
       <div className="section-container">
-        <div className="grid-standard grid-cols-1 xl:grid-cols-2">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-loose">
           {/* Recent Activity */}
-          <div className="card-container">
-            <div className="card-header">
-              <h2 className="text-base sm:text-lg font-semibold text-primary">Recent Activity</h2>
+          <div className="card">
+            <div className="p-loose border-b border-light">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
             </div>
-            <div className="card-body">
+            <div className="p-loose">
               {recentActivity.length > 0 ? (
-                <div className="space-y-3 sm:space-y-4">
+                <div className="space-standard">
                   {recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-start space-x-3 touch-manipulation">
+                    <div key={index} className="flex items-start space-x-compact">
                       <div className="flex-shrink-0">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
+                        <div className="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-primary">{activity.description}</p>
-                        <p className="text-xs text-muted">{activity.time}</p>
+                        <p className="text-sm text-gray-900">{activity.description}</p>
+                        <p className="text-xs text-gray-500">{activity.time}</p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-muted text-center py-6 sm:py-8 text-sm">No recent activity</p>
+                <p className="text-gray-500 text-center py-8 text-sm">No recent activity</p>
               )}
             </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="card-container">
-            <div className="card-header">
-              <h2 className="text-base sm:text-lg font-semibold text-primary">Quick Actions</h2>
+          <div className="card">
+            <div className="p-loose border-b border-light">
+              <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
             </div>
-            <div className="card-body">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="p-loose">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-standard">
                 <button 
                   onClick={() => navigate('/crm')}
-                  className="btn-secondary flex flex-col items-center min-h-[100px] sm:min-h-[120px] touch-manipulation"
+                  className="btn btn-secondary flex flex-col items-center p-3 sm:p-4 min-h-[100px] sm:min-h-[120px] hover:bg-primary-50 hover:border-primary-200 transition-colors"
                 >
-                  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mb-2" />
-                  <span className="text-xs sm:text-sm font-medium text-primary text-center">Add Client</span>
-                  <span className="text-xs text-muted text-center hidden sm:block">Create new client record</span>
+                  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-primary-600 mb-2" />
+                  <span className="text-xs sm:text-sm font-medium text-gray-900 text-center">Add Client</span>
+                  <span className="text-xs text-gray-500 text-center mt-1 hidden sm:block">Create new client record</span>
                 </button>
 
                 <button 
                   onClick={() => navigate('/calendar')}
-                  className="btn-secondary flex flex-col items-center min-h-[100px] sm:min-h-[120px] touch-manipulation"
+                  className="btn btn-secondary flex flex-col items-center p-3 sm:p-4 min-h-[100px] sm:min-h-[120px] hover:bg-green-50 hover:border-green-200 transition-colors"
                 >
                   <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-green-600 mb-2" />
-                  <span className="text-xs sm:text-sm font-medium text-primary text-center">Schedule Meeting</span>
-                  <span className="text-xs text-muted text-center hidden sm:block">Book a new appointment</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900 text-center">Schedule Meeting</span>
+                  <span className="text-xs text-gray-500 text-center mt-1 hidden sm:block">Book a new appointment</span>
                 </button>
 
                 <button 
                   onClick={() => navigate('/journal')}
-                  className="btn-secondary flex flex-col items-center min-h-[100px] sm:min-h-[120px] touch-manipulation"
+                  className="btn btn-secondary flex flex-col items-center p-3 sm:p-4 min-h-[100px] sm:min-h-[120px] hover:bg-purple-50 hover:border-purple-200 transition-colors"
                 >
                   <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600 mb-2" />
-                  <span className="text-xs sm:text-sm font-medium text-primary text-center">New Journal Entry</span>
-                  <span className="text-xs text-muted text-center hidden sm:block">Write a journal entry</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900 text-center">New Journal Entry</span>
+                  <span className="text-xs text-gray-500 text-center mt-1 hidden sm:block">Write a journal entry</span>
                 </button>
 
                 <button 
                   onClick={() => navigate('/analytics')}
-                  className="btn-secondary flex flex-col items-center min-h-[100px] sm:min-h-[120px] touch-manipulation"
+                  className="btn btn-secondary flex flex-col items-center p-3 sm:p-4 min-h-[100px] sm:min-h-[120px] hover:bg-orange-50 hover:border-orange-200 transition-colors"
                 >
                   <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600 mb-2" />
-                  <span className="text-xs sm:text-sm font-medium text-primary text-center">View Analytics</span>
-                  <span className="text-xs text-muted text-center hidden sm:block">Check performance metrics</span>
+                  <span className="text-xs sm:text-sm font-medium text-gray-900 text-center">View Analytics</span>
+                  <span className="text-xs text-gray-500 text-center mt-1 hidden sm:block">Check performance metrics</span>
                 </button>
               </div>
             </div>

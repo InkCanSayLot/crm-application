@@ -1,16 +1,13 @@
 /**
  * Supabase configuration and client initialization
- * Centralized configuration to ensure environment variables are loaded properly
+ * Railway provides environment variables directly in production
+ * For development, ensure .env file is loaded by the main server entry point
  */
-import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { createClient } from '@supabase/supabase-js'
 
-// Load environment variables
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') })
+// Load environment variables first
+dotenv.config()
 
 // Validate environment variables
 const supabaseUrl = process.env.SUPABASE_URL

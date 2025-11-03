@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Client } from '@/lib/supabase';
 import { crmApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
+
 
 interface AddClientModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ const stageOptions = [
 ];
 
 export default function AddClientModal({ isOpen, onClose, onClientAdded, editingClient }: AddClientModalProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     company_name: editingClient?.company_name || '',
     contact_name: editingClient?.contact_name || '',
@@ -31,19 +34,60 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
     stage: editingClient?.stage || 'prospect',
     deal_value: editingClient?.deal_value || 0,
     assigned_to: editingClient?.assigned_to || '',
-    notes: editingClient?.notes || '',
+    last_contact_note: editingClient?.last_contact_note || '',
   });
+
+  // Update formData when editingClient changes
+  useEffect(() => {
+    if (editingClient) {
+      setFormData({
+        company_name: editingClient.company_name || '',
+        contact_name: editingClient.contact_name || '',
+        email: editingClient.email || '',
+        phone: editingClient.phone || '',
+        linkedin_url: editingClient.linkedin_url || '',
+        stage: editingClient.stage || 'prospect',
+        deal_value: editingClient.deal_value || 0,
+        assigned_to: editingClient.assigned_to || '',
+        last_contact_note: editingClient.last_contact_note || '',
+      });
+    } else {
+      // Reset form for new client
+      setFormData({
+        company_name: '',
+        contact_name: '',
+        email: '',
+        phone: '',
+        linkedin_url: '',
+        stage: 'prospect',
+        deal_value: 0,
+        assigned_to: '',
+        last_contact_note: '',
+      });
+    }
+  }, [editingClient]);
+
+
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
 
+
   useEffect(() => {
     const fetchUsers = async () => {
+      // Ensure user is authenticated before making API calls
+      if (!user?.id) {
+        console.log('AddClientModal.tsx - User not authenticated, skipping API calls');
+        return;
+      }
+      
       try {
         console.log('Fetching users...');
-        const data = await crmApi.getUsers();
-        console.log('Users data received:', data);
+        const response = await crmApi.getUsers();
+        console.log('Users response received:', response);
         
-        // Ensure data is always an array
+        // Handle both old format (direct array) and new format ({success: true, data: []})
+         const data = Array.isArray(response) ? response : ((response as any)?.data || []);
+        
         if (Array.isArray(data)) {
           setUsers(data);
           console.log('Users set successfully:', data.length, 'users');
@@ -57,10 +101,10 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
       }
     };
     
-    if (isOpen) {
+    if (isOpen && user?.id) {
       fetchUsers();
     }
-  }, [isOpen]);
+  }, [isOpen, user?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +133,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
         stage: 'prospect',
         deal_value: 0,
         assigned_to: '',
-        notes: '',
+        last_contact_note: '',
       });
     } catch (error) {
       console.error('Error saving client:', error);
@@ -101,11 +145,14 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
+    
+    setFormData({
+      ...formData,
       [name]: name === 'deal_value' ? parseFloat(value) || 0 : value
-    }));
+    });
   };
+
+
 
   if (!isOpen) return null;
 
@@ -117,16 +164,18 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
             {editingClient ? 'Edit Client' : 'Add New Client'}
           </h2>
           <button
-            onClick={onClose}
-            className="btn-secondary p-2"
-            aria-label="Close modal"
-          >
+              onClick={onClose}
+              className="btn btn-secondary p-2"
+              aria-label="Close modal"
+            >
             <X className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
         </div>
 
         <div className="modal-body">
           <form id="client-form" onSubmit={handleSubmit} className="space-y-4">
+
+
           <div className="grid grid-cols-1 gap-4 sm:gap-6 mobile-grid-1 sm:grid-cols-2">
             <div>
               <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -139,7 +188,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 value={formData.company_name}
                 onChange={handleChange}
                 required
-                className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="Enter company name"
               />
             </div>
@@ -154,7 +203,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 name="contact_name"
                 value={formData.contact_name}
                 onChange={handleChange}
-                className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="Enter contact name"
               />
             </div>
@@ -170,7 +219,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 value={formData.email}
                 onChange={handleChange}
                   required
-                className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="Enter email address"
               />
             </div>
@@ -185,7 +234,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                  className="input-primary w-full px-4 py-3 touch-manipulation"
+                  className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="Enter phone number"
               />
             </div>
@@ -200,7 +249,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 name="linkedin_url"
                 value={formData.linkedin_url}
                 onChange={handleChange}
-                className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="https://linkedin.com/in/..."
               />
             </div>
@@ -214,7 +263,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 name="stage"
                 value={formData.stage}
                 onChange={handleChange}
-                className="input-primary w-full px-3 py-2"
+                className="input-field w-full px-4 py-3 touch-manipulation"
               >
                 {stageOptions.map(option => (
                   <option key={option.value} value={option.value}>
@@ -226,7 +275,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
 
             <div>
               <label htmlFor="deal_value" className="block text-sm font-medium text-gray-700 mb-2">
-                Deal Value
+                Deal Value ($)
               </label>
               <input
                 type="number"
@@ -236,8 +285,23 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 onChange={handleChange}
                 min="0"
                 step="0.01"
-                className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
                 placeholder="Enter deal value"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="last_contact_note" className="block text-sm font-medium text-gray-700 mb-2">
+                Last Contact Note
+              </label>
+              <input
+                type="text"
+                id="last_contact_note"
+                name="last_contact_note"
+                value={formData.last_contact_note}
+                onChange={handleChange}
+                className="input-field w-full px-4 py-3 touch-manipulation"
+                placeholder="Brief note about last contact..."
               />
             </div>
 
@@ -250,7 +314,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
                 name="assigned_to"
                 value={formData.assigned_to}
                 onChange={handleChange}
-                  className="input-primary w-full px-4 py-3 touch-manipulation"
+                className="input-field w-full px-4 py-3 touch-manipulation"
               >
                 <option value="">Select a team member</option>
                 {users && Array.isArray(users) ? users.map(user => (
@@ -263,19 +327,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
               </select>
             </div>
 
-            <div className="col-span-1 sm:col-span-2">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                Notes
-              </label>
-              <textarea
-                id="notes"
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                  className="input-primary w-full px-4 py-3 touch-manipulation resize-none"
-                placeholder="Enter any additional notes"
-              />
-            </div>
+
           </div>
 
           </form>
@@ -285,7 +337,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
           <button
             type="button"
             onClick={onClose}
-            className="btn-secondary w-full sm:w-auto touch-manipulation"
+            className="btn btn-secondary w-full sm:w-auto touch-manipulation"
           >
             Cancel
           </button>
@@ -293,7 +345,7 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
             type="submit"
             form="client-form"
             disabled={loading}
-            className="btn-primary disabled:opacity-50 w-full sm:w-auto touch-manipulation"
+            className="btn btn-primary disabled:opacity-50 w-full sm:w-auto touch-manipulation"
           >
             {loading ? 'Saving...' : editingClient ? 'Update Client' : 'Add Client'}
           </button>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Users, Search, Filter, Edit2, Trash2, CheckCircle, Circle, AlertCircle, Calendar, User, X, Save, FolderPlus, Folder } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import ConfirmationModal from '@/components/ui/ConfirmationModal'
 
 interface Task {
   id: string
@@ -66,23 +67,26 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'low' | 'medium' | 'high'>('all')
   const [showAddTaskModal, setShowAddTaskModal] = useState(false)
   const [selectedTasks, setSelectedTasks] = useState<string[]>([])
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Form states
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    color: '#3B82F6'
+    color: 'var(--color-primary-500)'
   })
 
   const colors = [
-    { name: 'Blue', value: '#3B82F6' },
-    { name: 'Green', value: '#10B981' },
+    { name: 'Primary Pink', value: 'var(--color-primary-500)' },
+    { name: 'Success Green', value: 'var(--color-success)' },
     { name: 'Purple', value: '#8B5CF6' },
-    { name: 'Red', value: '#EF4444' },
-    { name: 'Yellow', value: '#F59E0B' },
-    { name: 'Pink', value: '#EC4899' },
+    { name: 'Error Red', value: 'var(--color-error)' },
+    { name: 'Warning Yellow', value: 'var(--color-warning)' },
+    { name: 'Deep Pink', value: 'var(--color-primary-600)' },
     { name: 'Indigo', value: '#6366F1' },
-    { name: 'Gray', value: '#6B7280' }
+    { name: 'Gray', value: 'var(--color-gray-500)' }
   ]
 
   useEffect(() => {
@@ -248,7 +252,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
       if (error) throw error
 
       setShowCreateModal(false)
-      setFormData({ name: '', description: '', color: '#3B82F6' })
+      setFormData({ name: '', description: '', color: 'var(--color-primary-500)' })
       fetchTaskGroups()
     } catch (error) {
       console.error('Error creating task group:', error)
@@ -271,7 +275,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
       if (error) throw error
 
       setShowEditModal(false)
-      setFormData({ name: '', description: '', color: '#3B82F6' })
+      setFormData({ name: '', description: '', color: 'var(--color-primary-500)' })
       fetchTaskGroups()
       if (selectedGroup) {
         setSelectedGroup({ ...selectedGroup, name: formData.name, description: formData.description, color: formData.color })
@@ -281,34 +285,47 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
     }
   }
 
-  const deleteTaskGroup = async (groupId: string) => {
-    if (!confirm('Are you sure you want to delete this task group? This will not delete the tasks themselves.')) {
-      return
-    }
+  const handleDeleteClick = (groupId: string) => {
+    setGroupToDelete(groupId)
+    setShowDeleteModal(true)
+  }
 
+  const handleDeleteConfirm = async () => {
+    if (!groupToDelete) return
+
+    setDeleteLoading(true)
     try {
       // First delete all group members
       await supabase
         .from('task_group_members')
         .delete()
-        .eq('task_group_id', groupId)
+        .eq('task_group_id', groupToDelete)
 
       // Then delete the group
       const { error } = await supabase
         .from('task_groups')
         .delete()
-        .eq('id', groupId)
+        .eq('id', groupToDelete)
 
       if (error) throw error
 
-      if (selectedGroup?.id === groupId) {
+      if (selectedGroup?.id === groupToDelete) {
         setSelectedGroup(null)
         setGroupTasks([])
       }
+      setShowDeleteModal(false)
+      setGroupToDelete(null)
       fetchTaskGroups()
     } catch (error) {
       console.error('Error deleting task group:', error)
+    } finally {
+      setDeleteLoading(false)
     }
+  }
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false)
+    setGroupToDelete(null)
   }
 
   const addTasksToGroup = async () => {
@@ -377,10 +394,10 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case 'high': return 'badge-error'
-      case 'medium': return 'badge-warning'
-      case 'low': return 'badge-success'
-      default: return 'badge-info'
+      case 'high': return 'badge badge-error'
+      case 'medium': return 'badge badge-warning'
+      case 'low': return 'badge badge-success'
+      default: return 'badge badge-info'
     }
   }
 
@@ -406,10 +423,10 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
     return (
       <div className="section-container p-6">
         <div className="loading-skeleton">
-          <div className="h-6 bg-gray-200 rounded w-1/3 mb-6"></div>
+          <div className="h-6 bg-surface rounded w-1/3 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-32 bg-surface rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -423,12 +440,12 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
       <div className="card-header">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <Folder className="w-6 h-6 text-blue-600" />
+            <Folder className="w-6 h-6 text-primary-600" />
             <h2 className="text-xl font-semibold text-primary">Task Groups</h2>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn-primary flex items-center space-x-2"
+            className="btn btn-primary flex items-center space-x-2"
           >
             <FolderPlus className="w-4 h-4" />
             <span>Create Group</span>
@@ -447,7 +464,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
               <p className="text-muted mb-4">No task groups yet</p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="btn-secondary"
+                className="btn btn-secondary"
               >
                 Create your first group
               </button>
@@ -460,7 +477,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                   onClick={() => setSelectedGroup(group)}
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                     selectedGroup?.id === group.id
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-primary-500 bg-primary-50'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -505,14 +522,14 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                           e.stopPropagation()
                           openEditModal(group)
                         }}
-                        className="btn-secondary p-1"
+                        className="btn btn-secondary p-1"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteTaskGroup(group.id)
+                          handleDeleteClick(group.id)
                         }}
                         className="btn-danger p-1"
                       >
@@ -530,7 +547,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
         <div className="lg:w-2/3 card-body">
           {!selectedGroup ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <Users className="w-12 h-12 text-muted mx-auto mb-4" />
               <h3 className="text-lg font-medium text-primary mb-2">Select a task group</h3>
               <p className="text-muted">
                 Choose a group from the left to view and manage its tasks
@@ -555,7 +572,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                 
                 <button
                   onClick={() => setShowAddTaskModal(true)}
-                  className="btn-primary flex items-center space-x-2 text-sm"
+                  className="btn btn-primary flex items-center space-x-2 text-sm"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Tasks</span>
@@ -614,7 +631,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                   {groupTasks.length === 0 && (
                     <button
                       onClick={() => setShowAddTaskModal(true)}
-                      className="btn-secondary"
+                      className="btn btn-secondary"
                     >
                       Add tasks to this group
                     </button>
@@ -625,7 +642,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                   {filteredTasks.map(task => (
                     <div
                       key={task.id}
-                      className="card-container p-4"
+                      className="card card-body p-4"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -745,16 +762,16 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
               <button
                 onClick={() => {
                   setShowCreateModal(false)
-                  setFormData({ name: '', description: '', color: '#3B82F6' })
+                  setFormData({ name: '', description: '', color: 'var(--color-primary-500)' })
                 }}
-                className="btn-secondary"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={createTaskGroup}
                 disabled={!formData.name.trim()}
-                className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
                 <span>Create Group</span>
@@ -825,16 +842,16 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
               <button
                 onClick={() => {
                   setShowEditModal(false)
-                  setFormData({ name: '', description: '', color: '#3B82F6' })
+                  setFormData({ name: '', description: '', color: 'var(--color-primary-500)' })
                 }}
-                className="btn-secondary"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={updateTaskGroup}
                 disabled={!formData.name.trim()}
-                className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4" />
                 <span>Save Changes</span>
@@ -872,8 +889,8 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                   key={task.id}
                   className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                     selectedTasks.includes(task.id)
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary-500 bg-primary-50'
+                      : 'border-light hover:border-interactive'
                   }`}
                   onClick={() => {
                     setSelectedTasks(prev => 
@@ -888,7 +905,7 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                       type="checkbox"
                       checked={selectedTasks.includes(task.id)}
                       onChange={() => {}}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
@@ -932,14 +949,14 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
                     setShowAddTaskModal(false)
                     setSelectedTasks([])
                   }}
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={addTasksToGroup}
                   disabled={selectedTasks.length === 0}
-                  className="btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn btn-primary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Selected Tasks</span>
@@ -949,6 +966,19 @@ const TaskGroupManager: React.FC<TaskGroupManagerProps> = ({ currentUserId }) =>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Task Group"
+        message="Are you sure you want to delete this task group? This will not delete the tasks themselves."
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleteLoading}
+      />
     </div>
   )
 }

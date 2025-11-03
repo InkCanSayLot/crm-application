@@ -5,14 +5,22 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['lucide-react', 'framer-motion']
+        }
+      }
+    }
+  },
   plugins: [
-    react({
-      babel: {
-        plugins: [
-          'react-dev-locator',
-        ],
-      },
-    }),
+    react(),
  
     tsconfigPaths(),
     VitePWA({
@@ -117,7 +125,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3003',
+        target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -132,6 +140,20 @@ export default defineConfig({
           });
         },
       }
+    },
+    configureServer(server) {
+      server.middlewares.use('/api', (_options, _req, _res, next) => {
+        // Middleware placeholder for API routing
+        next();
+      });
+      server.middlewares.use('/api', (_req, _res, next) => {
+        // Additional API middleware
+        next();
+      });
+      server.middlewares.use('/api', (_req, _res, next) => {
+        // Final API middleware
+        next();
+      });
     }
   }
 })

@@ -124,8 +124,8 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     <div className={`space-y-3 ${className}`}>
       {/* Combined Display (when both date and time are selected) */}
       {selectedDate && selectedTime && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="text-sm text-blue-800 font-medium">
+        <div className="p-3 bg-primary-50 border border-primary-200 rounded-md">
+          <div className="text-sm text-primary-800 font-medium">
             Selected: {formatDateTime(selectedDate)}
           </div>
         </div>

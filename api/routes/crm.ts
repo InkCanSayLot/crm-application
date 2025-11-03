@@ -3,7 +3,7 @@
  * Handle CRUD operations for clients
  */
 import { Router, type Request, type Response } from 'express'
-import { supabaseServiceClient as supabase } from '../config/supabase.ts'
+import { supabaseServiceClient as supabase } from '../config/supabase'
 
 const router = Router()
 
@@ -23,7 +23,7 @@ router.get('/users', async (req: Request, res: Response): Promise<void> => {
   try {
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, email, name, full_name, role, created_at, updated_at')
+      .select('id, email, name, full_name, phone, location, company, role, bio, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -58,7 +58,7 @@ router.get('/clients', async (req: Request, res: Response): Promise<void> => {
       .from('clients')
       .select(`
         *,
-        assigned_to:users(id, name, email)
+        users!clients_assigned_to_fkey(id, name, email)
       `)
       .order('created_at', { ascending: false })
 
@@ -102,11 +102,14 @@ router.get('/users/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    // Validate UUID format (more permissive for development/test UUIDs)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(id)) {
       console.error('Invalid UUID format:', id);
-      res.status(400).json({ error: 'Invalid user ID format' });
+      res.status(400).json({ 
+        success: false,
+        error: 'Invalid user ID format' 
+      });
       return;
     }
     
@@ -118,19 +121,31 @@ router.get('/users/:id', async (req: Request, res: Response): Promise<void> => {
 
     if (error) {
       console.error('Database error fetching user:', error);
-      res.status(500).json({ error: 'Failed to fetch user' });
+      res.status(400).json({ 
+        success: false,
+        error: error.message 
+      });
       return;
     }
 
     if (!data) {
-      res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ 
+        success: false,
+        error: 'User not found' 
+      });
       return;
     }
 
-    res.json(data);
+    res.status(200).json({
+      success: true,
+      data: data
+    });
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error' 
+    });
   }
 })
 
@@ -152,8 +167,8 @@ router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
     console.log('Full request headers:', JSON.stringify(req.headers, null, 2))
     console.log('Request timestamp:', new Date().toISOString())
     
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    // Validate UUID format (more permissive for development/test UUIDs)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(id)) {
       console.log('PUT /users/:id - Invalid UUID format:', id)
       res.status(400).json({
@@ -166,7 +181,11 @@ router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
       name,
       full_name,
       email,
-      role
+      phone,
+      location,
+      company,
+      role,
+      bio
     } = req.body
 
     const updateData: any = {
@@ -176,13 +195,17 @@ router.put('/users/:id', async (req: Request, res: Response): Promise<void> => {
     if (name !== undefined) updateData.name = name
     if (full_name !== undefined) updateData.full_name = full_name
     if (email !== undefined) updateData.email = email
+    if (phone !== undefined) updateData.phone = phone
+    if (location !== undefined) updateData.location = location
+    if (company !== undefined) updateData.company = company
     if (role !== undefined) updateData.role = role
+    if (bio !== undefined) updateData.bio = bio
 
     const { data: user, error } = await supabase
       .from('users')
       .update(updateData)
       .eq('id', id)
-      .select('id, email, name, full_name, role, created_at, updated_at')
+      .select('id, email, name, full_name, phone, location, company, role, bio, created_at, updated_at')
       .single()
 
     if (error) {
@@ -219,7 +242,7 @@ router.get('/clients/:id', async (req: Request, res: Response): Promise<void> =>
       .from('clients')
       .select(`
         *,
-        assigned_to:users(id, name, email)
+        assignee:users!clients_assigned_to_fkey(id, name, email)
       `)
       .eq('id', id)
       .single()
@@ -259,7 +282,8 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
       stage = 'prospect',
       deal_value,
       assigned_to,
-      notes
+      last_contact_note,
+      user_id
     } = req.body
 
     // Validate required fields
@@ -269,6 +293,34 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
         error: 'Company name is required'
       })
       return
+    }
+
+    // Validate UUID format for assigned_to if provided
+    let validatedAssignedTo = null
+    if (assigned_to && assigned_to !== '') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(assigned_to)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid assigned_to user ID format. Expected UUID.'
+        })
+        return
+      }
+      validatedAssignedTo = assigned_to
+    }
+
+    // Validate UUID format for user_id if provided
+    let validatedUserId = null
+    if (user_id && user_id !== '') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(user_id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user_id format. Expected UUID.'
+        })
+        return
+      }
+      validatedUserId = user_id
     }
 
     const { data: client, error } = await supabase
@@ -281,12 +333,13 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
         linkedin_url,
         stage,
         deal_value: deal_value ? parseFloat(deal_value) : null,
-        assigned_to,
-        notes
+        assigned_to: validatedAssignedTo,
+        last_contact_note,
+        user_id: validatedUserId
       })
       .select(`
         *,
-        assigned_to:users(id, name, email)
+        assignee:users!clients_assigned_to_fkey(id, name, email)
       `)
       .single()
 
@@ -328,8 +381,33 @@ router.put('/clients/:id', async (req: Request, res: Response): Promise<void> =>
       stage,
       deal_value,
       assigned_to,
-      notes
+      last_contact_note,
+      user_id
     } = req.body
+
+    // Validate UUID format for assigned_to if provided
+    if (assigned_to !== undefined && assigned_to !== null && assigned_to !== '') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(assigned_to)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid assigned_to user ID format. Expected UUID.'
+        })
+        return
+      }
+    }
+
+    // Validate UUID format for user_id if provided
+    if (user_id !== undefined && user_id !== null && user_id !== '') {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(user_id)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid user_id format. Expected UUID.'
+        })
+        return
+      }
+    }
 
     const updateData: any = {
       updated_at: new Date().toISOString()
@@ -342,8 +420,9 @@ router.put('/clients/:id', async (req: Request, res: Response): Promise<void> =>
     if (linkedin_url !== undefined) updateData.linkedin_url = linkedin_url
     if (stage !== undefined) updateData.stage = stage
     if (deal_value !== undefined) updateData.deal_value = deal_value ? parseFloat(deal_value) : null
-    if (assigned_to !== undefined) updateData.assigned_to = assigned_to
-    if (notes !== undefined) updateData.notes = notes
+    if (assigned_to !== undefined) updateData.assigned_to = assigned_to === '' ? null : assigned_to
+    if (last_contact_note !== undefined) updateData.last_contact_note = last_contact_note
+    if (user_id !== undefined) updateData.user_id = user_id === '' ? null : user_id
 
     const { data: client, error } = await supabase
       .from('clients')
@@ -351,7 +430,7 @@ router.put('/clients/:id', async (req: Request, res: Response): Promise<void> =>
       .eq('id', id)
       .select(`
         *,
-        assigned_to:users(id, name, email)
+        assignee:users!clients_assigned_to_fkey(id, name, email)
       `)
       .single()
 

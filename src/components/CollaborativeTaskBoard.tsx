@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Users, Plus, MoreVertical, User, Calendar, AlertCircle, CheckCircle, Circle, Clock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import AddSharedTaskModal from './AddSharedTaskModal'
 
 interface SharedTask {
   id: string
@@ -42,6 +43,7 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
   const [tasks, setTasks] = useState<SharedTask[]>([])
   const [loading, setLoading] = useState(true)
   const [draggedTask, setDraggedTask] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const columns = [
     { id: 'pending', title: 'To Do', status: 'pending', color: 'bg-gray-50 border-gray-200' },
@@ -141,7 +143,7 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
       case 'high': return 'border-l-red-500'
       case 'medium': return 'border-l-yellow-500'
       case 'low': return 'border-l-green-500'
-      default: return 'border-l-gray-300'
+      default: return 'border-l-light'
     }
   }
 
@@ -173,13 +175,13 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
     return (
       <div className="section-container p-6">
         <div className="loading-skeleton">
-          <div className="h-6 bg-gray-200 rounded w-1/4 mb-6"></div>
+          <div className="h-6 bg-surface rounded w-1/4 mb-6"></div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map(i => (
               <div key={i} className="space-y-3">
                 <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 {[1, 2].map(j => (
-                  <div key={j} className="h-24 bg-gray-200 rounded"></div>
+                  <div key={j} className="h-24 bg-surface rounded"></div>
                 ))}
               </div>
             ))}
@@ -195,13 +197,16 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
       <div className="card-header">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Users className="w-6 h-6 text-blue-600" />
+            <Users className="w-6 h-6 text-primary-600" />
             <h2 className="text-xl font-semibold text-primary">Task Board</h2>
             <span className="badge badge-info">
               {tasks.length} tasks
             </span>
           </div>
-          <button className="btn-primary flex items-center space-x-2">
+          <button 
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Add Task</span>
           </button>
@@ -297,8 +302,8 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
                             {/* Assignee */}
                             {task.assignee && (
                               <div className="flex items-center space-x-2">
-                                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <User className="w-3 h-3 text-blue-600" />
+                                <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center">
+                  <User className="w-3 h-3 text-primary-600" />
                                 </div>
                                 <span className="text-xs text-secondary truncate">
                                   {task.assignee.name}
@@ -322,6 +327,15 @@ const CollaborativeTaskBoard: React.FC<CollaborativeTaskBoardProps> = ({ current
           })}
         </div>
       </div>
+
+      <AddSharedTaskModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onTaskAdded={() => {
+          fetchTasks()
+          setShowAddModal(false)
+        }}
+      />
     </div>
   )
 }

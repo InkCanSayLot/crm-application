@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Filter, Shield, Calendar, Mail, Phone, MapPin, Clock, UserPlus } from 'lucide-react';
+import { Users, Search, Filter, Shield, Calendar, Mail, Phone, MapPin, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
-import { useSettings } from '../../contexts/SettingsContext';
+import Avatar from '../ui/Avatar';
+
 
 interface TeamMember {
   id: string;
@@ -18,20 +19,24 @@ interface TeamMember {
 }
 
 export default function Team() {
-  const { formatDate } = useSettings();
+  // Default date formatting
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
+
 
   // Fetch team members from Supabase
   const fetchTeamMembers = async () => {
     try {
+      console.log('Fetching team members from Supabase...');
       const { data: users, error } = await supabase
         .from('users')
         .select('*')
         .order('created_at', { ascending: true });
+
+      console.log('Supabase query result:', { users, error });
 
       if (error) {
         console.error('Error fetching team members:', error);
@@ -53,16 +58,17 @@ export default function Team() {
           id: user.id,
           full_name: user.full_name || user.name || user.email.split('@')[0], // Fallback to email prefix if name is null
           email: user.email,
-          phone: '', // Not stored in users table
-          location: '', // Not stored in users table
+          phone: user.phone || '',
+          location: user.location || '',
           role: user.role || 'Member',
-          avatar_url: user.avatar_url || `https://trae-api-sg.mchost.guru/api/ide/v1/text_to_image?prompt=professional%20business%20person%20headshot%20portrait&image_size=square`,
+          avatar_url: user.avatar_url, // Use only the stored avatar URL, no fallback generation
           created_at: user.created_at,
           last_active: user.last_seen || user.updated_at,
           status: isOnline ? 'online' : (isActive ? 'active' : 'inactive')
         };
       }) || [];
 
+      console.log('Transformed users:', transformedUsers);
       setTeamMembers(transformedUsers);
     } catch (error) {
       console.error('Error:', error);
@@ -84,7 +90,7 @@ export default function Team() {
     return matchesSearch && matchesFilter;
   });
 
-  // formatDate function now comes from SettingsContext
+
 
   const formatLastActive = (dateString?: string) => {
     if (!dateString) return 'Never';
@@ -122,17 +128,11 @@ export default function Team() {
               <Users className="mr-2 sm:mr-3 h-6 w-6 sm:h-8 sm:w-8 text-pink-600" />
               Team Management
             </h1>
-            <p className="text-gray-600 mt-1 text-sm sm:text-base">
+            <p className="text-muted mt-1 text-sm sm:text-base">
               Manage your Empty operations team members
             </p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <UserPlus className="w-4 h-4" />
-            Add Member
-          </button>
+
         </div>
 
         {/* Search and Filter */}
@@ -171,7 +171,7 @@ export default function Team() {
               <Users className="h-5 w-5 sm:h-6 sm:w-6 text-pink-600" />
             </div>
             <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Members</p>
+              <p className="text-xs sm:text-sm font-medium text-muted">Total Members</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">{teamMembers.length}</p>
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function Team() {
               <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
             </div>
             <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Active Members</p>
+              <p className="text-xs sm:text-sm font-medium text-muted">Active Members</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">
                 {teamMembers.filter(m => m.status === 'active').length}
               </p>
@@ -191,11 +191,11 @@ export default function Team() {
         </div>
         <div className="card-container p-4 sm:p-6 sm:col-span-2 lg:col-span-1">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+            <div className="p-2 bg-primary-100 rounded-lg flex-shrink-0">
+              <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-primary-600" />
             </div>
             <div className="ml-3 sm:ml-4 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Online Now</p>
+              <p className="text-xs sm:text-sm font-medium text-muted">Online Now</p>
               <p className="text-xl sm:text-2xl font-bold text-gray-900">
                 {teamMembers.filter(m => m.status === 'online').length}
               </p>
@@ -207,26 +207,18 @@ export default function Team() {
       {/* Team Members List */}
       <div className="card-container">
         <div className="card-header">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Team Members</h2>
+          <h2 className="text-base sm:text-lg font-semibold text-primary">Team Members</h2>
         </div>
         <div className="divide-y divide-gray-200">
           {filteredMembers.map((member) => (
             <div key={member.id} className="p-4 sm:p-6 hover:bg-gray-50 active:bg-gray-100 transition-colors touch-target">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-start sm:items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
-                  <div className="bg-pink-100 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {member.avatar_url ? (
-                      <img 
-                        src={member.avatar_url} 
-                        alt={member.full_name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-pink-600 font-semibold text-sm sm:text-lg">
-                        {member.full_name.charAt(0)}
-                      </span>
-                    )}
-                  </div>
+                  <Avatar 
+                    name={member.full_name}
+                    avatarUrl={member.avatar_url}
+                    size="md"
+                  />
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">{member.full_name}</h3>
@@ -281,23 +273,7 @@ export default function Team() {
         </div>
       )}
 
-      {/* Add Member Modal */}
-      {showAddModal && (
-        <div className="modal-overlay">
-          <div className="modal-container">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Team Member</h3>
-            <p className="text-gray-600 mb-6">Team member management functionality will be implemented soon.</p>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="btn-secondary px-4 py-2"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

@@ -26,10 +26,17 @@ export interface Client {
   email?: string;
   phone?: string;
   linkedin_url?: string;
-  stage: 'prospect' | 'connected' | 'replied' | 'meeting' | 'proposal' | 'closed' | 'lost';
+  stage: 'lead' | 'prospect' | 'connected' | 'replied' | 'meeting' | 'proposal' | 'closed' | 'lost';
   deal_value?: number;
+  number_of_cars?: number;
+  commitment_length?: number;
+  per_car_value?: number;
+  setup_fee?: number;
   assigned_to?: string;
   notes?: string;
+  profile_image_url?: string;
+  last_contact?: string;
+  last_contact_note?: string;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +76,7 @@ export interface CalendarEvent {
   end_time: string;
   type: 'meeting' | 'reminder' | 'appointment' | 'other';
   created_by?: string;
+  client_id?: string;
   is_collective: boolean;
   created_at: string;
 }

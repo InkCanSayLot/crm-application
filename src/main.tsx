@@ -14,5 +14,5 @@ document.body.style.backgroundColor = '#f9fafb';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 )

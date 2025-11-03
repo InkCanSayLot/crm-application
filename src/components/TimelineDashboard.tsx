@@ -241,7 +241,7 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'task': return <Circle className="w-4 h-4 text-blue-600" />
+      case 'task': return <Circle className="w-4 h-4 text-primary-600" />
       case 'event': return <Calendar className="w-4 h-4 text-green-600" />
       case 'shared_task': return <User className="w-4 h-4 text-purple-600" />
       default: return <Circle className="w-4 h-4 text-gray-400" />
@@ -291,11 +291,11 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
       <div className="card p-6">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="space-y-4">
+          <div className="space-standard">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex space-x-4">
+              <div key={i} className="flex space-x-standard">
                 <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
-                <div className="flex-1 space-y-2">
+                <div className="flex-1 space-compact">
                   <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                   <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                 </div>
@@ -311,11 +311,11 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
     <div className="section-container">
       {/* Header */}
       <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Clock className="w-6 h-6 text-blue-600" />
+        <div className="flex items-center justify-between mb-standard">
+          <div className="flex items-center space-x-compact">
+            <Clock className="w-6 h-6 text-primary-600" />
             <h2 className="text-xl font-semibold text-primary">Timeline Dashboard</h2>
-            <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+            <span className="bg-primary-100 text-primary-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
               {filteredItems.length} items
             </span>
           </div>
@@ -371,7 +371,7 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-loose">
             {sortedDates.map(date => {
               const dayItems = groupedItems[date]
               const isExpanded = expandedDays.has(date)
@@ -381,7 +381,7 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
                 <div key={date} className="relative">
                   {/* Date Header */}
                   <div className="flex items-center space-x-3 mb-4">
-                    <div className="flex-shrink-0 w-3 h-3 bg-blue-600 rounded-full"></div>
+                    <div className="flex-shrink-0 w-3 h-3 bg-primary-600 rounded-full"></div>
                     <h3 className="text-lg font-medium text-primary">
                       {formatDate(date)}
                     </h3>
@@ -429,21 +429,21 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
                                   </p>
                                 )}
                                 
-                                <div className="flex items-center space-x-4 text-xs text-muted">
-                                  <span className="flex items-center space-x-1">
+                                <div className="flex items-center space-x-standard text-xs text-muted">
+                                  <span className="flex items-center space-x-compact">
                                     <Clock className="w-3 h-3" />
                                     <span>{formatTime(item.start_date)}</span>
                                   </span>
                                   
                                   {item.client && (
-                                    <span className="flex items-center space-x-1">
+                                    <span className="flex items-center space-x-compact">
                                       <User className="w-3 h-3" />
                                       <span>{item.client.company_name}</span>
                                     </span>
                                   )}
                                   
                                   {item.assignee && (
-                                    <span className="flex items-center space-x-1">
+                                    <span className="flex items-center space-x-compact">
                                       <User className="w-3 h-3" />
                                       <span>Assigned to {item.assignee.name}</span>
                                     </span>
@@ -470,7 +470,7 @@ const TimelineDashboard: React.FC<TimelineDashboardProps> = ({ currentUserId }) 
                     {dayItems.length > 3 && (
                       <button
                         onClick={() => toggleDayExpansion(date)}
-                        className="ml-6 flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                        className="ml-6 flex items-center space-x-2 text-sm text-primary-600 hover:text-primary-800 transition-colors"
                       >
                         {isExpanded ? (
                           <>

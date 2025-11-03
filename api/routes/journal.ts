@@ -3,21 +3,31 @@
  * Handle CRUD operations for journal entries
  */
 import { Router, type Request, type Response } from 'express'
-import { supabaseServiceClient as supabase } from '../config/supabase.ts'
+import { supabaseServiceClient as supabase } from '../config/supabase'
 
 const router = Router()
 
 /**
- * Get all journal entries
+ * Get user's journal entries (user-specific data)
  * GET /api/journal/entries
  */
 router.get('/entries', async (req: Request, res: Response): Promise<void> => {
   try {
     const { start_date, end_date, limit = 50 } = req.query
+    const userId = req.headers['user-id'] as string
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      })
+      return
+    }
 
     let query = supabase
       .from('journal_entries')
       .select('*')
+      .eq('user_id', userId) // Enforce user-specific data access
       .order('entry_date', { ascending: false })
       .limit(parseInt(limit as string))
 
@@ -96,25 +106,33 @@ router.get('/entries/:id', async (req: Request, res: Response): Promise<void> =>
 })
 
 /**
- * Create new journal entry
+ * Create new journal entry (user-specific)
  * POST /api/journal/entries
  */
 router.post('/entries', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      sales_accomplishment,
-      marketing_accomplishment,
-      ops_accomplishment,
-      tech_accomplishment,
-      random_thoughts,
-      entry_date
+      title,
+      content,
+      entry_date,
+      mood,
+      tags
     } = req.body
+    const userId = req.headers['user-id'] as string
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      })
+      return
+    }
 
     // Validate required fields
-    if (!entry_date) {
+    if (!title || !content) {
       res.status(400).json({
         success: false,
-        error: 'Entry date is required'
+        error: 'Title and content are required'
       })
       return
     }
@@ -122,12 +140,12 @@ router.post('/entries', async (req: Request, res: Response): Promise<void> => {
     const { data: entry, error } = await supabase
       .from('journal_entries')
       .insert({
-        sales_accomplishment,
-        marketing_accomplishment,
-        ops_accomplishment,
-        tech_accomplishment,
-        random_thoughts,
-        entry_date
+        title,
+        content,
+        entry_date: entry_date || new Date().toISOString().split('T')[0],
+        mood,
+        tags,
+        user_id: userId // Ensure user-specific data
       })
       .select('*')
       .single()
@@ -329,7 +347,7 @@ router.get('/stats', async (req: Request, res: Response): Promise<void> => {
 
     let currentStreak = 0
     const today = new Date().toISOString().split('T')[0]
-    let checkDate = new Date()
+    const checkDate = new Date()
 
     for (let i = 0; i < 365; i++) { // Check up to a year
       const dateStr = checkDate.toISOString().split('T')[0]

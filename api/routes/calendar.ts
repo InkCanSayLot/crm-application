@@ -3,24 +3,43 @@
  * Handle CRUD operations for calendar events and tasks
  */
 import { Router, type Request, type Response } from 'express'
-import { supabaseServiceClient as supabase } from '../config/supabase.ts'
+import { supabaseServiceClient as supabase } from '../config/supabase'
 
 const router = Router()
 
 // ============ CALENDAR EVENTS ============
 
 /**
- * Get all calendar events
+ * Get all calendar events (shared + user's personal events)
  * GET /api/calendar/events
  */
 router.get('/events', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { start_date, end_date } = req.query
+    const { start_date, end_date, type } = req.query
+    const userId = req.headers['user-id'] as string
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      })
+      return
+    }
 
     let query = supabase
       .from('calendar_events')
       .select('*')
       .order('start_time', { ascending: true })
+
+    // Data separation: Get shared events (is_collective=true) OR user's personal events
+    if (type === 'shared') {
+      query = query.eq('is_collective', true)
+    } else if (type === 'personal') {
+      query = query.eq('is_collective', false).eq('user_id', userId)
+    } else {
+      // Default: get both shared events and user's personal events
+      query = query.or(`is_collective.eq.true,and(is_collective.eq.false,user_id.eq.${userId})`)
+    }
 
     // Filter by date range if provided
     if (start_date) {
@@ -113,8 +132,18 @@ router.post('/events', async (req: Request, res: Response): Promise<void> => {
       type = 'meeting',
       client_id,
       location,
-      meeting_url
+      meeting_url,
+      is_collective = false
     } = req.body
+    const userId = req.headers['user-id'] as string
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      })
+      return
+    }
 
     // Validate required fields
     if (!title || !start_time) {
@@ -133,7 +162,12 @@ router.post('/events', async (req: Request, res: Response): Promise<void> => {
         start_time,
         end_time,
         type,
-        client_id
+        client_id,
+        location,
+        meeting_url,
+        is_collective,
+        user_id: is_collective ? null : userId, // Personal events have user_id, shared events don't
+        created_by: userId
       })
       .select('*')
       .single()
@@ -280,7 +314,7 @@ router.get('/tasks', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        assigned_to:users(id, name, email)
+        assignee:users!tasks_assigned_to_fkey(id, name, email)
       `)
       .order('created_at', { ascending: false })
 
@@ -340,7 +374,7 @@ router.get('/tasks/:id', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        assigned_to:users(id, name, email)
+        assignee:users!tasks_assigned_to_fkey(id, name, email)
       `)
       .eq('id', id)
       .single()
@@ -404,7 +438,7 @@ router.post('/tasks', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        assigned_to:users(id, name, email)
+        assignee:users!tasks_assigned_to_fkey(id, name, email)
       `)
       .single()
 
@@ -464,7 +498,7 @@ router.put('/tasks/:id', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        assigned_to:users(id, name, email)
+        assignee:users!tasks_assigned_to_fkey(id, name, email)
       `)
       .single()
 
@@ -887,7 +921,7 @@ router.get('/shared-tasks', async (req: Request, res: Response): Promise<void> =
         task:tasks(
           *,
           client:clients(id, company_name, contact_name),
-          assigned_to:users(id, name, email)
+          assignee:users!tasks_assigned_to_fkey(id, name, email)
         )
       `)
       .eq('shared_with', user_id)
@@ -1010,6 +1044,75 @@ router.delete('/tasks/:id/share/:userId', async (req: Request, res: Response): P
   }
 })
 
+/**
+ * Create a new shared task
+ * POST /api/calendar/shared-tasks
+ */
+router.post('/shared-tasks', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { title, description, due_date, priority, shared_with } = req.body
+
+    if (!title) {
+      res.status(400).json({
+        success: false,
+        error: 'Title is required'
+      })
+      return
+    }
+
+    // Create the task first
+    const { data: task, error: taskError } = await supabase
+      .from('tasks')
+      .insert({
+        title,
+        description,
+        due_date,
+        priority: priority || 'medium',
+        status: 'pending',
+        completed: false,
+        is_shared: true
+      })
+      .select()
+      .single()
+
+    if (taskError) {
+      res.status(400).json({
+        success: false,
+        error: taskError.message
+      })
+      return
+    }
+
+    // Create shared_task records for each user
+    if (shared_with && shared_with.length > 0) {
+      const sharedTaskRecords = shared_with.map((userId: string) => ({
+        task_id: task.id,
+        shared_with: userId
+      }))
+
+      const { error: sharedError } = await supabase
+        .from('shared_tasks')
+        .insert(sharedTaskRecords)
+
+      if (sharedError) {
+        // If sharing fails, we should still return the task but log the error
+        console.error('Failed to create shared task records:', sharedError)
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      data: task,
+      message: 'Shared task created successfully'
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create shared task'
+    })
+  }
+})
+
 // ============ TIMELINE ============
 
 /**
@@ -1033,7 +1136,7 @@ router.get('/timeline/client/:clientId', async (req: Request, res: Response): Pr
         due_date,
         completed,
         created_at,
-        assigned_to:users(id, name, email)
+        assignee:users!tasks_assigned_to_fkey(id, name, email)
       `)
       .eq('client_id', clientId)
       .order('created_at', { ascending: true })
@@ -1101,7 +1204,7 @@ router.get('/timeline/client/:clientId', async (req: Request, res: Response): Pr
         date: task.due_date || task.created_at,
         status: task.completed ? 'completed' : task.status,
         priority: task.priority,
-        assigned_to: task.assigned_to
+        assigned_to: task.assignee?.[0]?.id || null
       })),
       ...events.map(event => ({
         id: event.id,
@@ -1148,7 +1251,7 @@ router.get('/timeline/tasks', async (req: Request, res: Response): Promise<void>
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        assigned_to:users(id, name, email),
+        assignee:users!tasks_assigned_to_fkey(id, name, email),
         task_group:task_groups(id, name)
       `)
       .order('created_at', { ascending: true })
@@ -1210,7 +1313,7 @@ router.get('/timeline/team', async (req: Request, res: Response): Promise<void> 
         priority,
         created_at,
         updated_at,
-        assigned_to:users(id, name, email),
+        assignee:users!tasks_assigned_to_fkey(id, name, email),
         client:clients(id, company_name)
       `)
       .order('updated_at', { ascending: false })
@@ -1263,7 +1366,7 @@ router.get('/timeline/team', async (req: Request, res: Response): Promise<void> 
         type: 'task_update',
         title: `Task updated: ${task.title}`,
         date: task.updated_at,
-        user: task.assigned_to,
+        user: task.assignee?.[0]?.id || null,
         client: task.client,
         status: task.status,
         priority: task.priority
@@ -1289,6 +1392,11 @@ router.get('/timeline/team', async (req: Request, res: Response): Promise<void> 
       error: 'Failed to fetch team timeline'
     })
   }
+})
+
+// Test endpoint to verify route registration
+router.get('/test-route', (req: Request, res: Response) => {
+  res.json({ success: true, message: 'Route registration working' })
 })
 
 export default router

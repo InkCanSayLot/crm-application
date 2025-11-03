@@ -3,9 +3,10 @@ import { Event as CalendarEvent, Task } from '@/lib/supabase';
 import { calendarApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { useSettings } from '@/contexts/SettingsContext';
+
 import AddEventModal from './AddEventModal';
 import AddTaskModal from './AddTaskModal';
+import ConfirmationModal from '@/components/ui/ConfirmationModal';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import CollaborativeTaskBoard from '@/components/CollaborativeTaskBoard';
 import TimelineDashboard from '@/components/TimelineDashboard';
@@ -49,8 +50,12 @@ interface CalendarDay {
 type CalendarView = 'month' | 'week' | 'day';
 
 export default function Calendar() {
+  console.log('Calendar component loaded');
   const { user } = useAuth();
-  const { formatDate, formatTime, formatDateTime } = useSettings();
+  // Default date and time formatting
+  const formatDate = (date: Date) => date.toLocaleDateString();
+  const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatDateTime = (date: Date) => date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -61,6 +66,10 @@ export default function Calendar() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [currentView, setCurrentView] = useState<CalendarView | 'shared' | 'timeline' | 'client-timeline' | 'task-groups'>('month');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteType, setDeleteType] = useState<'event' | 'task' | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     fetchCalendarData();
@@ -68,7 +77,39 @@ export default function Calendar() {
 
   // Real-time subscriptions
   useEffect(() => {
-    if (!user) return;
+
+    // Load both shared and personal calendar data
+    const loadAllCalendarData = async () => {
+      try {
+        const [sharedEventsData, personalEventsData] = await Promise.all([
+          calendarApi.getEvents({ type: 'shared' }),
+          calendarApi.getEvents({ type: 'personal' })
+        ]);
+        
+        // Ensure data is always an array
+        const sharedEvents = Array.isArray(sharedEventsData) ? sharedEventsData : [];
+        const personalEvents = Array.isArray(personalEventsData) ? personalEventsData : [];
+        
+        // Combine shared and personal events
+        const allEvents = [...sharedEvents, ...personalEvents];
+        setEvents(allEvents);
+        
+        // Also fetch tasks (keeping existing logic)
+        try {
+          const tasksResponse = await calendarApi.getTasks();
+          const tasksArray = Array.isArray(tasksResponse) ? tasksResponse : [];
+          setTasks(tasksArray);
+        } catch (error) {
+          console.error('Error fetching tasks:', error);
+        }
+      } catch (error) {
+        console.error('Error loading calendar data:', error);
+        setEvents([]);
+        setTasks([]);
+      }
+    };
+    
+    loadAllCalendarData();
 
     // Subscribe to events changes
     const eventsSubscription = supabase
@@ -78,12 +119,11 @@ export default function Calendar() {
         {
           event: '*',
           schema: 'public',
-          table: 'events',
-          filter: `user_id=eq.${user.id}`
+          table: 'events'
         },
         (payload) => {
           console.log('Events change received:', payload);
-          fetchCalendarData(); // Refresh data on any change
+          loadAllCalendarData(); // Refresh data on any change
         }
       )
       .subscribe();
@@ -96,12 +136,11 @@ export default function Calendar() {
         {
           event: '*',
           schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.id}`
+          table: 'tasks'
         },
         (payload) => {
           console.log('Tasks change received:', payload);
-          fetchCalendarData(); // Refresh data on any change
+          loadAllCalendarData(); // Refresh data on any change
         }
       )
       .subscribe();
@@ -118,7 +157,7 @@ export default function Calendar() {
         },
         (payload) => {
           console.log('Shared tasks change received:', payload);
-          fetchCalendarData(); // Refresh data on any change
+          loadAllCalendarData(); // Refresh data on any change
         }
       )
       .subscribe();
@@ -135,7 +174,7 @@ export default function Calendar() {
         },
         (payload) => {
           console.log('Task groups change received:', payload);
-          fetchCalendarData(); // Refresh data on any change
+          loadAllCalendarData(); // Refresh data on any change
         }
       )
       .subscribe();
@@ -150,20 +189,22 @@ export default function Calendar() {
   }, [user]);
 
   const fetchCalendarData = async () => {
-    if (!user) return;
 
     try {
       setLoading(true);
       
-      // Fetch events
+      // Fetch events (both shared and personal by default)
+      // The API now handles data separation automatically
       const eventsData = await calendarApi.getEvents();
       
       // Fetch tasks
       const tasksData = await calendarApi.getTasks();
+      console.log('Fetched tasks data:', tasksData);
 
       // Ensure data is always an array
       const eventsArray = Array.isArray(eventsData) ? eventsData : [];
       const tasksArray = Array.isArray(tasksData) ? tasksData : [];
+      console.log('Tasks array length:', tasksArray.length);
       
       setEvents(eventsArray);
       setTasks(tasksArray);
@@ -173,6 +214,44 @@ export default function Calendar() {
       // Set empty arrays on error to prevent filter issues
       setEvents([]);
       setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch only shared events
+  const fetchSharedEvents = async () => {
+
+    try {
+      setLoading(true);
+      const eventsData = await calendarApi.getEvents({ type: 'shared' });
+      const eventsArray = Array.isArray(eventsData) ? eventsData : [];
+      setEvents(eventsArray);
+      return eventsArray;
+    } catch (error) {
+      console.error('Error fetching shared events:', error);
+      toast.error('Failed to fetch shared events');
+      setEvents([]);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch only personal events
+  const fetchPersonalEvents = async () => {
+
+    try {
+      setLoading(true);
+      const eventsData = await calendarApi.getEvents({ type: 'personal' });
+      const eventsArray = Array.isArray(eventsData) ? eventsData : [];
+      setEvents(eventsArray);
+      return eventsArray;
+    } catch (error) {
+      console.error('Error fetching personal events:', error);
+      toast.error('Failed to fetch personal events');
+      setEvents([]);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -323,30 +402,41 @@ export default function Calendar() {
     }
   };
 
-  const deleteEvent = async (eventId: string) => {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+  const handleDeleteClick = (id: string, type: 'event' | 'task') => {
+    setItemToDelete(id);
+    setDeleteType(type);
+    setShowDeleteModal(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete || !deleteType) return;
+
+    setDeleteLoading(true);
     try {
-      await calendarApi.deleteEvent(eventId);
-      setEvents(events.filter(e => e.id !== eventId));
-      toast.success('Event deleted successfully');
+      if (deleteType === 'event') {
+        await calendarApi.deleteEvent(itemToDelete);
+        setEvents(events.filter(e => e.id !== itemToDelete));
+        toast.success('Event deleted successfully');
+      } else {
+        await calendarApi.deleteTask(itemToDelete);
+        setTasks(tasks.filter(t => t.id !== itemToDelete));
+        toast.success('Task deleted successfully');
+      }
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+      setDeleteType(null);
     } catch (error) {
-      console.error('Error deleting event:', error);
-      toast.error('Failed to delete event');
+      console.error(`Error deleting ${deleteType}:`, error);
+      toast.error(`Failed to delete ${deleteType}`);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
-  const deleteTask = async (taskId: string) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
-
-    try {
-      await calendarApi.deleteTask(taskId);
-      setTasks(tasks.filter(t => t.id !== taskId));
-      toast.success('Task deleted successfully');
-    } catch (error) {
-      console.error('Error deleting task:', error);
-      toast.error('Failed to delete task');
-    }
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setItemToDelete(null);
+    setDeleteType(null);
   };
 
   const calendarDays = generateCalendarDays();
@@ -367,14 +457,14 @@ export default function Calendar() {
       <div className="p-6">
         <div className="loading-skeleton">
           <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="card-container">
-            <div className="h-6 bg-gray-200 rounded mb-4"></div>
-            <div className="grid grid-cols-7 gap-4">
-              {[...Array(35)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-50 rounded"></div>
-              ))}
-            </div>
+          <div className="card">
+          <div className="h-6 bg-gray-200 rounded mb-4"></div>
+          <div className="grid grid-cols-7 gap-4">
+            {[...Array(35)].map((_, i) => (
+              <div key={i} className="h-24 bg-gray-50 rounded"></div>
+            ))}
           </div>
+        </div>
         </div>
       </div>
     );
@@ -382,167 +472,176 @@ export default function Calendar() {
 
   return (
     <div className="p-6">
-      <div className="card-header mb-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="mb-8">
+        <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Calendar</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Calendar</h1>
             <p className="text-gray-600">Manage your events and tasks</p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             {/* View Toggle */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex overflow-x-auto gap-2 pb-2 sm:pb-0 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 min-w-max">
               <button
                 onClick={() => setCurrentView('month')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex items-center gap-1 ${
                   currentView === 'month'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                <CalendarIcon className="h-4 w-4 inline mr-1" />
-                Month
+                <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Month</span>
               </button>
               <button
                 onClick={() => setCurrentView('week')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm ${
                   currentView === 'week'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                Week
+                <span className="hidden xs:inline">Week</span>
+                <span className="xs:hidden">W</span>
               </button>
               <button
                 onClick={() => setCurrentView('day')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm ${
                   currentView === 'day'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                Day
+                <span className="hidden xs:inline">Day</span>
+                <span className="xs:hidden">D</span>
               </button>
               <button
                 onClick={() => setCurrentView('shared')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex items-center gap-1 ${
                   currentView === 'shared'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                <Users className="h-4 w-4 inline mr-1" />
-                Shared
+                <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Shared</span>
               </button>
               <button
                 onClick={() => setCurrentView('timeline')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex items-center gap-1 ${
                   currentView === 'timeline'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                <Activity className="h-4 w-4 inline mr-1" />
-                Timeline
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Timeline</span>
               </button>
               <button
                 onClick={() => setCurrentView('client-timeline')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex items-center gap-1 ${
                   currentView === 'client-timeline'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                <Activity className="h-4 w-4 inline mr-1" />
-                Client Timeline
+                <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden lg:inline">Client Timeline</span>
+                <span className="lg:hidden hidden sm:inline">Client</span>
               </button>
               <button
                 onClick={() => setCurrentView('task-groups')}
-                className={`px-3 py-2 rounded-lg font-medium transition-colors text-sm ${
+                className={`px-2 sm:px-3 py-2 rounded-lg font-medium transition-colors text-xs sm:text-sm flex items-center gap-1 ${
                   currentView === 'task-groups'
-                    ? 'btn-primary'
-                    : 'btn-secondary'
+                    ? 'btn btn-primary'
+                    : 'btn btn-secondary'
                 }`}
               >
-                <FolderOpen className="h-4 w-4 inline mr-1" />
-                Task Groups
+                <FolderOpen className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden lg:inline">Task Groups</span>
+                <span className="lg:hidden hidden sm:inline">Tasks</span>
               </button>
+              </div>
             </div>
             
-            <button
-              onClick={() => {
-                setEditingTask(null);
-                setShowTaskModal(true);
-              }}
-              className="btn-primary flex items-center"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Task
-            </button>
-            <button
-              onClick={() => {
-                setEditingEvent(null);
-                setShowEventModal(true);
-              }}
-              className="btn-primary flex items-center"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Event
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  setEditingTask(null);
+                  setShowTaskModal(true);
+                }}
+                className="btn btn-primary flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="sm:inline">Add Task</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingEvent(null);
+                  setShowEventModal(true);
+                }}
+                className="btn btn-primary flex items-center justify-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="sm:inline">Add Event</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="flex flex-col xl:flex-row gap-3 sm:gap-4 lg:gap-6">
         {/* Calendar */}
-        <div className="lg:col-span-3">
-          <div className="card-container">
-            <div className="card-header border-b">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
+        <div className="order-1 xl:order-none xl:flex-1 min-w-0">
+          <div className="card">
+            <div className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-b border-light">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h2 className="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 min-w-0">
                   {getViewTitle()}
                 </h2>
-                <div className="flex space-x-2">
+                <div className="flex justify-center sm:justify-end space-x-1 sm:space-x-2">
                   <button
                     onClick={() => navigateDate('prev')}
-                    className="btn-secondary p-2"
+                    className="btn btn-secondary p-1.5 sm:p-2 rounded-lg min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px]"
                   >
-                    <ChevronLeft className="w-5 h-5" />
+                    <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                   <button
                     onClick={() => setCurrentDate(new Date())}
-                    className="btn-secondary text-sm"
+                    className="btn btn-secondary text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg min-h-[40px] sm:min-h-[44px]"
                   >
                     Today
                   </button>
                   <button
                     onClick={() => navigateDate('next')}
-                    className="btn-secondary p-2"
+                    className="btn btn-secondary p-1.5 sm:p-2 rounded-lg min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px]"
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {/* Month View */}
               {currentView === 'month' && (
                 <>
                   {/* Days header */}
-                  <div className="grid grid-cols-7 gap-1 mb-2">
+                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
                     {DAYS.map(day => (
-                      <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                        {day}
+                      <div key={day} className="p-1 sm:p-2 text-center text-xs sm:text-sm font-medium text-gray-500">
+                        <span className="hidden sm:inline">{day}</span>
+                        <span className="sm:hidden">{day.charAt(0)}</span>
                       </div>
                     ))}
                   </div>
 
                   {/* Calendar grid */}
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                     {calendarDays.map((day, index) => (
                       <div
                         key={index}
-                        className={`min-h-[100px] p-2 border border-gray-100 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`min-h-[60px] sm:min-h-[80px] md:min-h-[90px] lg:min-h-[100px] xl:min-h-[110px] p-0.5 sm:p-1 lg:p-2 border-light rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
                           !day.isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''
                         } ${
                           day.isToday ? 'bg-pink-50 border-pink-200' : ''
@@ -553,17 +652,17 @@ export default function Calendar() {
                           setShowEventModal(true);
                         }}
                       >
-                        <div className={`text-sm font-medium mb-1 ${
+                        <div className={`text-xs sm:text-sm font-medium mb-0.5 sm:mb-1 ${
                           day.isToday ? 'text-pink-600' : day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
                         }`}>
                           {day.date.getDate()}
                         </div>
                         
                         {/* Events */}
-                        {day.events.slice(0, 2).map(event => (
+                        {day.events.slice(0, 1).map(event => (
                           <div
                             key={event.id}
-                            className="text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded mb-1 truncate cursor-pointer hover:bg-pink-200"
+                            className="text-xs bg-pink-100 text-pink-800 px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer hover:bg-pink-200 min-h-[16px] sm:min-h-[18px] lg:min-h-[24px] flex items-center touch-manipulation"
                             title={event.title}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -576,10 +675,10 @@ export default function Calendar() {
                         ))}
                         
                         {/* Tasks */}
-                        {day.tasks.slice(0, 2).map(task => (
+                        {day.tasks.slice(0, 1).map(task => (
                           <div
                             key={task.id}
-                            className={`text-xs px-2 py-1 rounded mb-1 truncate cursor-pointer ${
+                            className={`text-xs px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer min-h-[16px] sm:min-h-[18px] lg:min-h-[24px] flex items-center touch-manipulation ${
                               task.completed 
                                 ? 'bg-green-100 text-green-800 line-through hover:bg-green-200' 
                                 : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
@@ -596,9 +695,9 @@ export default function Calendar() {
                         ))}
                         
                         {/* More indicator */}
-                        {(day.events.length + day.tasks.length) > 4 && (
-                          <div className="text-xs text-gray-500">
-                            +{(day.events.length + day.tasks.length) - 4} more
+                        {(day.events.length + day.tasks.length) > 2 && (
+                          <div className="text-xs text-gray-500 px-0.5 sm:px-1">
+                            +{(day.events.length + day.tasks.length) - 2}
                           </div>
                         )}
                       </div>
@@ -634,20 +733,21 @@ export default function Calendar() {
               {currentView === 'week' && (
                 <>
                   {/* Days header */}
-                  <div className="grid grid-cols-7 gap-1 mb-2">
+                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
                     {DAYS.map(day => (
-                      <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                        {day}
+                      <div key={day} className="p-1 sm:p-2 text-center text-xs sm:text-sm font-medium text-gray-500">
+                        <span className="hidden sm:inline">{day}</span>
+                        <span className="sm:hidden">{day.charAt(0)}</span>
                       </div>
                     ))}
                   </div>
 
                   {/* Week grid */}
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
                     {generateWeekDays().map((day, index) => (
                       <div
                         key={index}
-                        className={`min-h-[200px] p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                        className={`min-h-[100px] sm:min-h-[120px] md:min-h-[140px] lg:min-h-[160px] xl:min-h-[180px] p-1 sm:p-2 lg:p-3 border-standard rounded-lg cursor-pointer hover:bg-gray-50 transition-colors touch-manipulation ${
                           day.isToday ? 'bg-pink-50 border-pink-200' : 'bg-white'
                         }`}
                         onClick={() => {
@@ -655,18 +755,18 @@ export default function Calendar() {
                           setCurrentView('day');
                         }}
                       >
-                        <div className={`text-lg font-semibold mb-2 ${
+                        <div className={`text-sm sm:text-lg font-semibold mb-1 sm:mb-2 ${
                           day.isToday ? 'text-pink-600' : 'text-gray-900'
                         }`}>
                           {day.date.getDate()}
                         </div>
                         
                         {/* Events */}
-                        <div className="space-y-1 mb-2">
+                        <div className="space-y-0.5 sm:space-y-1 mb-1 sm:mb-2">
                           {day.events.map(event => (
                             <div
                               key={event.id}
-                              className="text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded cursor-pointer hover:bg-pink-200"
+                              className="text-xs bg-pink-100 text-pink-800 px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer hover:bg-pink-200 truncate"
                               title={event.title}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -675,7 +775,7 @@ export default function Calendar() {
                               }}
                             >
                               <div className="font-medium truncate">{event.title}</div>
-                              <div className="text-xs opacity-75">
+                              <div className="text-xs opacity-75 hidden sm:block">
                                 {new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                               </div>
                             </div>
@@ -683,11 +783,11 @@ export default function Calendar() {
                         </div>
                         
                         {/* Tasks */}
-                        <div className="space-y-1">
+                        <div className="space-y-0.5 sm:space-y-1">
                           {day.tasks.map(task => (
                             <div
                               key={task.id}
-                              className={`text-xs px-2 py-1 rounded cursor-pointer ${
+                              className={`text-xs px-1 sm:px-2 py-0.5 sm:py-1 rounded cursor-pointer truncate ${
                                 task.completed 
                                   ? 'bg-green-100 text-green-800 line-through hover:bg-green-200' 
                                   : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
@@ -711,45 +811,47 @@ export default function Calendar() {
 
               {/* Day View */}
               {currentView === 'day' && (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div className="text-center">
-                    <div className={`text-2xl font-bold mb-2 ${
+                    <div className={`text-lg sm:text-xl lg:text-2xl font-bold mb-2 ${
                       getDayData().isToday ? 'text-pink-600' : 'text-gray-900'
                     }`}>
-                      {DAYS[currentDate.getDay()]}
+                      <span className="hidden sm:inline">{DAYS[currentDate.getDay()]}</span>
+                      <span className="sm:hidden">{DAYS[currentDate.getDay()].substring(0, 3)}</span>
                     </div>
-                    <div className="text-gray-600">
-                      {formatDateTime(currentDate)}
+                    <div className="text-xs sm:text-sm lg:text-base text-gray-600">
+                      <span className="hidden sm:inline">{formatDateTime(currentDate)}</span>
+                      <span className="sm:hidden">{formatDate(currentDate)}</span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                     {/* Events */}
-                    <div className="card-container">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <CalendarIcon className="w-5 h-5 mr-2 text-pink-600" />
+                    <div className="card card-body">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                        <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 text-pink-600" />
                         Events
                       </h3>
                       {getDayData().events.length === 0 ? (
-                        <div className="text-center py-8">
-                          <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500">No events today</p>
+                        <div className="text-center py-6 sm:py-8">
+                          <CalendarIcon className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500 text-sm">No events today</p>
                           <button
                             onClick={() => {
                               setEditingEvent(null);
                               setShowEventModal(true);
                             }}
-                            className="mt-2 text-pink-600 hover:text-pink-700 text-sm font-medium"
+                            className="mt-2 text-pink-600 hover:text-pink-700 text-xs sm:text-sm font-medium"
                           >
                             Add an event
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                           {getDayData().events.map(event => (
                             <div
                               key={event.id}
-                              className="card p-4 border border-pink-200 cursor-pointer hover:shadow-md transition-shadow"
+                              className="card p-3 sm:p-4 border border-pink-200 cursor-pointer hover:shadow-md transition-shadow"
                               onClick={() => {
                                 setEditingEvent(event);
                                 setShowEventModal(true);
@@ -757,19 +859,19 @@ export default function Calendar() {
                             >
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
-                                  <h4 className="font-medium text-gray-900">{event.title}</h4>
-                                  <div className="flex items-center text-sm text-gray-500 mt-1">
-                                    <Clock className="w-4 h-4 mr-1" />
+                                  <h4 className="font-medium text-gray-900 text-sm sm:text-base">{event.title}</h4>
+                                  <div className="flex items-center text-xs sm:text-sm text-gray-500 mt-1">
+                                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                     {formatTime(new Date(event.start_time))} - {formatTime(new Date(event.end_time))}
                                   </div>
                                   {event.location && (
-                                    <div className="flex items-center text-sm text-gray-500 mt-1">
-                                      <MapPin className="w-4 h-4 mr-1" />
+                                    <div className="flex items-center text-xs sm:text-sm text-gray-500 mt-1">
+                                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                       {event.location}
                                     </div>
                                   )}
                                   {event.description && (
-                                    <p className="text-sm text-gray-600 mt-2">{event.description}</p>
+                                    <p className="text-xs sm:text-sm text-gray-600 mt-2">{event.description}</p>
                                   )}
                                 </div>
                               </div>
@@ -780,37 +882,39 @@ export default function Calendar() {
                     </div>
 
                     {/* Tasks */}
-                    <div className="card-container">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <CheckCircle className="w-5 h-5 mr-2 text-purple-600" />
+                    <div className="card card-body">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1 sm:mr-2 text-purple-600" />
                         Tasks
                       </h3>
                       {getDayData().tasks.length === 0 ? (
-                        <div className="text-center py-8">
-                          <CheckCircle className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-500">No tasks today</p>
+                        <div className="text-center py-6 sm:py-8">
+                          <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-500 text-sm">No tasks today</p>
                           <button
                             onClick={() => {
                               setEditingTask(null);
                               setShowTaskModal(true);
                             }}
-                            className="mt-2 text-purple-600 hover:text-purple-700 text-sm font-medium"
+                            className="mt-2 text-purple-600 hover:text-purple-700 text-xs sm:text-sm font-medium"
                           >
                             Add a task
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2 sm:space-y-3">
                           {getDayData().tasks.map(task => (
                             <div
                               key={task.id}
-                              className="card-container border border-purple-200 cursor-pointer hover:shadow-md transition-shadow"
+                              className="card card-body border border-purple-200 cursor-pointer hover:shadow-md transition-shadow p-3 sm:p-4"
                               onClick={() => {
-                                setEditingTask(task);
-                                setShowTaskModal(true);
-                              }}
+                        console.log('Task clicked:', task.title, 'Current showTaskModal:', showTaskModal);
+                        setEditingTask(task);
+                        setShowTaskModal(true);
+                        console.log('After setting modal state - showTaskModal should be true');
+                      }}
                             >
-                              <div className="flex items-start space-x-3">
+                              <div className="flex items-start space-x-2 sm:space-x-3">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -819,22 +923,22 @@ export default function Calendar() {
                                   className="mt-0.5 text-purple-600 hover:text-purple-700"
                                 >
                                   {task.completed ? (
-                                    <CheckCircle className="w-5 h-5" />
+                                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                                   ) : (
-                                    <Circle className="w-5 h-5" />
+                                    <Circle className="w-4 h-4 sm:w-5 sm:h-5" />
                                   )}
                                 </button>
                                 <div className="flex-1">
-                                  <h4 className={`font-medium ${
-                                    task.completed ? 'text-gray-500 line-through' : 'text-gray-900'
+                                  <h4 className={`font-medium text-sm sm:text-base ${
+                                    task.completed ? 'text-muted line-through' : 'text-primary'
                                   }`}>
                                     {task.title}
                                   </h4>
                                   {task.description && (
-                                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                                    <p className="text-xs sm:text-sm text-muted mt-1">{task.description}</p>
                                   )}
-                                  <div className="flex items-center text-sm text-gray-500 mt-2">
-                                    <Clock className="w-4 h-4 mr-1" />
+                                  <div className="flex items-center text-xs sm:text-sm text-muted mt-2">
+                                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                     Due: {formatDate(new Date(task.due_date))}
                                   </div>
                                 </div>
@@ -852,16 +956,17 @@ export default function Calendar() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="w-full xl:w-80 xl:flex-shrink-0 space-y-3 sm:space-y-4 lg:space-y-6">
           {/* Upcoming Events */}
-          <div className="card-container">
-            <div className="card-header border-b">
-              <h3 className="font-semibold text-gray-900 flex items-center">
-                <CalendarIcon className="w-4 h-4 mr-2 text-pink-600" />
-                Upcoming Events
+          <div className="card">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900 flex items-center">
+                <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-pink-600" />
+                <span className="hidden sm:inline">Upcoming Events</span>
+                <span className="sm:hidden">Events</span>
               </h3>
             </div>
-            <div className="p-4">
+            <div className="p-4 sm:p-6">
               {upcomingEvents.length === 0 ? (
                 <p className="text-sm text-gray-500">No upcoming events</p>
               ) : (
@@ -887,12 +992,12 @@ export default function Calendar() {
                             setEditingEvent(event);
                             setShowEventModal(true);
                           }}
-                          className="btn-secondary"
+                          className="btn btn-secondary p-1.5 rounded-md"
                         >
                           <Edit className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => deleteEvent(event.id)}
+                          onClick={() => handleDeleteClick(event.id, 'event')}
                           className="text-gray-400 hover:text-red-600"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -906,14 +1011,15 @@ export default function Calendar() {
           </div>
 
           {/* Upcoming Tasks */}
-          <div className="card-container">
-            <div className="card-header border-b">
-              <h3 className="font-semibold text-gray-900 flex items-center">
-                <CheckCircle className="w-4 h-4 mr-2 text-purple-600" />
-                Upcoming Tasks
+          <div className="card">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+              <h3 className="text-sm sm:text-base font-semibold text-gray-900 flex items-center">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 text-purple-600" />
+                <span className="hidden sm:inline">Upcoming Tasks</span>
+                <span className="sm:hidden">Tasks</span>
               </h3>
             </div>
-            <div className="p-4">
+            <div className="p-4 sm:p-6">
               {upcomingTasks.length === 0 ? (
                 <p className="text-sm text-gray-500">No upcoming tasks</p>
               ) : (
@@ -949,12 +1055,12 @@ export default function Calendar() {
                             setEditingTask(task);
                             setShowTaskModal(true);
                           }}
-                          className="btn-secondary"
+                          className="btn btn-secondary p-1.5 rounded-md"
                         >
                           <Edit className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => deleteTask(task.id)}
+                          onClick={() => handleDeleteClick(task.id, 'task')}
                           className="text-gray-400 hover:text-red-600"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -969,38 +1075,7 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
-        <button
-          onClick={() => {
-            setEditingEvent(null);
-            setSelectedDate(currentDate);
-            setShowEventModal(true);
-          }}
-          className="btn-primary p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 group"
-          title="Add Event"
-        >
-          <CalendarIcon className="w-6 h-6" />
-          <span className="absolute right-full mr-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-2 py-1 rounded text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-            Add Event
-          </span>
-        </button>
-        
-        <button
-          onClick={() => {
-            setEditingTask(null);
-            setSelectedDate(currentDate);
-            setShowTaskModal(true);
-          }}
-          className="btn-primary p-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 group"
-          title="Add Task"
-        >
-          <CheckCircle className="w-6 h-6" />
-          <span className="absolute right-full mr-3 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-2 py-1 rounded text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-            Add Task
-          </span>
-        </button>
-      </div>
+
 
       {/* Modals */}
       <AddEventModal
@@ -1010,6 +1085,10 @@ export default function Calendar() {
           setEditingEvent(null);
         }}
         onEventAdded={() => fetchCalendarData()}
+        onEventDeleted={(eventId) => {
+          setEvents(events.filter(e => e.id !== eventId));
+          fetchCalendarData();
+        }}
         editEvent={editingEvent}
       />
 
@@ -1020,7 +1099,24 @@ export default function Calendar() {
           setEditingTask(null);
         }}
         onTaskAdded={() => fetchCalendarData()}
+        onTaskDeleted={(taskId) => {
+          setTasks(tasks.filter(t => t.id !== taskId));
+          fetchCalendarData();
+        }}
         editTask={editingTask}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title={`Delete ${deleteType === 'event' ? 'Event' : 'Task'}`}
+        message={`Are you sure you want to delete this ${deleteType}? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleteLoading}
       />
     </div>
   );

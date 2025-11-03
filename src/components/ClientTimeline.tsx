@@ -295,12 +295,12 @@ const ClientTimeline: React.FC<ClientTimelineProps> = ({ clientId, currentUserId
           <AlertCircle className="w-5 h-5 text-yellow-600" /> :
           <Circle className="w-5 h-5 text-gray-400" />
       case 'event':
-        return <Calendar className="w-5 h-5 text-blue-600" />
+        return <Calendar className="w-5 h-5 text-primary-600" />
       case 'interaction':
         return activity.interaction_type === 'call' ?
           <Phone className="w-5 h-5 text-green-600" /> :
           activity.interaction_type === 'email' ?
-          <Mail className="w-5 h-5 text-blue-600" /> :
+          <Mail className="w-5 h-5 text-primary-600" /> :
           <MessageSquare className="w-5 h-5 text-purple-600" />
       case 'note':
         return <FileText className="w-5 h-5 text-orange-600" />
@@ -373,7 +373,7 @@ const ClientTimeline: React.FC<ClientTimelineProps> = ({ clientId, currentUserId
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <User className="w-6 h-6 text-blue-600" />
+            <User className="w-6 h-6 text-primary-600" />
             <h2 className="text-xl font-semibold text-primary">Client Timeline</h2>
           </div>
         </div>

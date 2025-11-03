@@ -115,51 +115,50 @@ const CalendarDropdown: React.FC<CalendarDropdownProps> = ({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`input-primary text-left flex items-center justify-between ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        className={`input-primary text-left flex items-center justify-between text-sm sm:text-base px-3 sm:px-4 py-2 sm:py-2.5 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <span className={value ? 'text-gray-900' : 'text-gray-500'}>
           {value ? formatDate(value) : placeholder}
         </span>
-        <Calendar className="h-4 w-4 text-gray-400" />
+        <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
       </button>
 
-      {/* Dropdown Calendar */}
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4 min-w-[280px]">
+        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 p-3 sm:p-4 min-w-[280px] sm:min-w-[320px]">
           {/* Month Navigation */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <button
               type="button"
               onClick={() => navigateMonth('prev')}
-              className="btn-secondary p-1"
+              className="btn-secondary p-2 rounded-lg"
             >
-              <ChevronLeft className="h-4 w-4 text-gray-600" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
-            
-            <h3 className="text-sm font-medium text-gray-900">
+            <h3 className="font-medium text-gray-900 text-sm sm:text-base">
               {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
             </h3>
-            
             <button
               type="button"
               onClick={() => navigateMonth('next')}
-              className="btn-secondary p-1"
+              className="btn-secondary p-2 rounded-lg"
             >
-              <ChevronRight className="h-4 w-4 text-gray-600" />
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
           {/* Day Headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2">
             {dayNames.map(day => (
-              <div key={day} className="text-xs font-medium text-gray-500 text-center py-1">
-                {day}
+              <div key={day} className="text-xs font-medium text-gray-500 text-center py-1 sm:py-1.5">
+                <span className="sm:hidden">{day.slice(0, 1)}</span>
+                <span className="hidden sm:inline">{day}</span>
               </div>
             ))}
           </div>
 
           {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1">
             {getDaysInMonth(currentMonth).map((date, index) => {
               if (!date) {
                 return <div key={index} className="h-8" />
@@ -176,15 +175,14 @@ const CalendarDropdown: React.FC<CalendarDropdownProps> = ({
                   onClick={() => handleDateSelect(date)}
                   disabled={disabled}
                   className={`
-                    h-8 w-8 text-sm rounded transition-colors duration-200
-                    flex items-center justify-center
+                    w-8 h-8 sm:w-9 sm:h-9 text-xs sm:text-sm rounded-md transition-colors duration-200 flex items-center justify-center min-h-[32px] sm:min-h-[36px]
                     ${selected
-                      ? 'bg-blue-600 text-white font-medium'
+                      ? 'bg-primary-600 text-white font-medium'
                       : today
-                      ? 'bg-blue-100 text-blue-600 font-medium'
+                      ? 'bg-primary-100 text-primary-600 font-medium'
                       : disabled
                       ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
                     }
                   `}
                 >
@@ -195,11 +193,11 @@ const CalendarDropdown: React.FC<CalendarDropdownProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="mt-4 pt-3 border-t border-gray-200">
+          <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-200">
             <button
               type="button"
               onClick={() => handleDateSelect(new Date())}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors duration-200"
+              className="btn-secondary text-sm px-3 py-2"
             >
               Today
             </button>

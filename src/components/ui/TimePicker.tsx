@@ -129,26 +129,27 @@ const TimePicker: React.FC<TimePickerProps> = ({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`
-          w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+          w-full px-3 sm:px-4 py-2 sm:py-2.5 text-left bg-white border-interactive rounded-md shadow-sm
+          focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500
           disabled:bg-gray-100 disabled:cursor-not-allowed
-          hover:border-gray-400 transition-colors duration-200
+          transition-colors duration-200
           flex items-center justify-between
+          text-sm sm:text-base min-h-[48px]
         `}
       >
         <span className={value ? 'text-gray-900' : 'text-gray-500'}>
           {value ? formatTime(value) : placeholder}
         </span>
-        <Clock className="h-4 w-4 text-gray-400" />
+        <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
       </button>
 
       {/* Dropdown Time Picker */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4 min-w-[300px]">
+        <div className="absolute z-50 mt-1 bg-white border-standard rounded-md shadow-lg p-3 sm:p-4 min-w-[280px] sm:min-w-[320px] max-w-[95vw]">
           {/* Quick Time Selection */}
           <div className="mb-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Common Times</h4>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
               {getCommonTimes().map(time => (
                 <button
                   key={time.value}
@@ -157,7 +158,7 @@ const TimePicker: React.FC<TimePickerProps> = ({
                     onChange(time.value)
                     setIsOpen(false)
                   }}
-                  className="btn-secondary px-2 py-1 text-sm"
+                  className="btn-secondary px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm"
                 >
                   {time.label}
                 </button>
@@ -165,18 +166,18 @@ const TimePicker: React.FC<TimePickerProps> = ({
             </div>
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
+          <div className="border-t border-light pt-4">
             <h4 className="text-sm font-medium text-gray-700 mb-3">Custom Time</h4>
             
             {/* Time Selectors */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               {/* Hour Selector */}
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">Hour</label>
                 <select
                   value={selectedHour}
                   onChange={(e) => setSelectedHour(Number(e.target.value))}
-                  className="input-primary text-sm"
+                  className="input-primary text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 min-h-[40px] sm:min-h-[44px]"
                 >
                   {generateHours().map(hour => (
                     <option key={hour} value={hour}>
@@ -186,7 +187,7 @@ const TimePicker: React.FC<TimePickerProps> = ({
                 </select>
               </div>
 
-              <div className="text-gray-500 mt-5">:</div>
+              <div className="text-gray-500 mt-5 text-sm sm:text-base">:</div>
 
               {/* Minute Selector */}
               <div className="flex-1">
@@ -194,7 +195,7 @@ const TimePicker: React.FC<TimePickerProps> = ({
                 <select
                   value={selectedMinute}
                   onChange={(e) => setSelectedMinute(Number(e.target.value))}
-                  className="input-primary text-sm"
+                  className="input-primary text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 min-h-[40px] sm:min-h-[44px]"
                 >
                   {generateMinutes().map(minute => (
                     <option key={minute} value={minute}>
@@ -211,7 +212,7 @@ const TimePicker: React.FC<TimePickerProps> = ({
                   <select
                     value={selectedPeriod}
                     onChange={(e) => setSelectedPeriod(e.target.value as 'AM' | 'PM')}
-                    className="input-primary text-sm"
+                    className="input-primary text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2 min-h-[40px] sm:min-h-[44px]"
                   >
                     <option value="AM">AM</option>
                     <option value="PM">PM</option>
@@ -221,18 +222,18 @@ const TimePicker: React.FC<TimePickerProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-end space-x-2 mt-4">
+            <div className="flex justify-end space-x-2 sm:space-x-3 mt-3 sm:mt-4">
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="btn-secondary text-sm"
+                className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleTimeSelect}
-                className="btn-primary text-sm"
+                className="btn-primary px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm"
               >
                 Select
               </button>
