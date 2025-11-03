@@ -48,6 +48,12 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 
+# Environment and secret files
+railway.env
+.env.backup
+RAILWAY_ENV_VARIABLES.md
+scripts/update-railway-env.md
+
 # Build outputs
 build/
 out/
