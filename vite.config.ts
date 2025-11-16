@@ -25,6 +25,8 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Prevent auto-injection; we manually register in src/main.tsx
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'icon-192x192.png', 'icon-512x512.png'],
       manifest: {
         name: 'CRM Personal',

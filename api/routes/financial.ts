@@ -104,7 +104,7 @@ router.post('/budgets', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       client_id,
-      budget_name,
+      name,
       total_amount,
       budget_period = 'monthly',
       start_date,
@@ -114,10 +114,10 @@ router.post('/budgets', async (req: Request, res: Response): Promise<void> => {
     } = req.body
 
     // Validate required fields
-    if (!client_id || !budget_name || !total_amount || !start_date) {
+    if (!client_id || !name || !total_amount || !start_date) {
       res.status(400).json({
         success: false,
-        error: 'Client ID, budget name, total amount, and start date are required'
+        error: 'Client ID, name, total amount, and start date are required'
       })
       return
     }
@@ -126,7 +126,7 @@ router.post('/budgets', async (req: Request, res: Response): Promise<void> => {
       .from('budgets')
       .insert({
         client_id,
-        budget_name,
+        name,
         total_amount: parseFloat(total_amount),
         budget_period,
         start_date,
@@ -171,7 +171,7 @@ router.put('/budgets/:id', async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params
     const {
-      budget_name,
+      name,
       total_amount,
       budget_period,
       start_date,
@@ -183,7 +183,7 @@ router.put('/budgets/:id', async (req: Request, res: Response): Promise<void> =>
       updated_at: new Date().toISOString()
     }
 
-    if (budget_name !== undefined) updateData.budget_name = budget_name
+    if (name !== undefined) updateData.name = name
     if (total_amount !== undefined) updateData.total_amount = parseFloat(total_amount)
     if (budget_period !== undefined) updateData.budget_period = budget_period
     if (start_date !== undefined) updateData.start_date = start_date
@@ -275,7 +275,7 @@ router.get('/payments', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
+        budget:budgets(id, name),
         created_by_user:users!payments_created_by_fkey(id, name, email)
       `)
       .order('payment_date', { ascending: false })
@@ -325,7 +325,7 @@ router.get('/payments/:id', async (req: Request, res: Response): Promise<void> =
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
+        budget:budgets(id, name),
         created_by_user:users!payments_created_by_fkey(id, name, email)
       `)
       .eq('id', id)
@@ -399,7 +399,7 @@ router.post('/payments', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
+        budget:budgets(id, name),
         created_by_user:users!payments_created_by_fkey(id, name, email)
       `)
       .single()
@@ -464,7 +464,7 @@ router.put('/payments/:id', async (req: Request, res: Response): Promise<void> =
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
+        budget:budgets(id, name),
         created_by_user:users!payments_created_by_fkey(id, name, email)
       `)
       .single()
@@ -543,8 +543,8 @@ router.get('/expenses', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
-        vendor:vendors(id, vendor_name),
+        budget:budgets(id, name),
+        vendor:vendors(id, name),
         created_by_user:users!expenses_created_by_fkey(id, name, email)
       `)
       .order('expense_date', { ascending: false })
@@ -602,8 +602,8 @@ router.get('/expenses/:id', async (req: Request, res: Response): Promise<void> =
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
-        vendor:vendors(id, vendor_name),
+        budget:budgets(id, name),
+        vendor:vendors(id, name),
         created_by_user:users!expenses_created_by_fkey(id, name, email)
       `)
       .eq('id', id)
@@ -677,8 +677,8 @@ router.post('/expenses', async (req: Request, res: Response): Promise<void> => {
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
-        vendor:vendors(id, vendor_name),
+        budget:budgets(id, name),
+        vendor:vendors(id, name),
         created_by_user:users!expenses_created_by_fkey(id, name, email)
       `)
       .single()
@@ -741,8 +741,8 @@ router.put('/expenses/:id', async (req: Request, res: Response): Promise<void> =
       .select(`
         *,
         client:clients(id, company_name, contact_name),
-        budget:budgets(id, budget_name),
-        vendor:vendors(id, vendor_name),
+        budget:budgets(id, name),
+        vendor:vendors(id, name),
         created_by_user:users!expenses_created_by_fkey(id, name, email)
       `)
       .single()
@@ -819,7 +819,7 @@ router.get('/vendors', async (req: Request, res: Response): Promise<void> => {
     let query = supabase
       .from('vendors')
       .select('*')
-      .order('vendor_name', { ascending: true })
+      .order('name', { ascending: true })
 
     if (status) {
       query = query.eq('status', status)
@@ -894,7 +894,7 @@ router.get('/vendors/:id', async (req: Request, res: Response): Promise<void> =>
 router.post('/vendors', async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      vendor_name,
+      name,
       contact_person,
       email,
       phone,
@@ -906,10 +906,10 @@ router.post('/vendors', async (req: Request, res: Response): Promise<void> => {
     } = req.body
 
     // Validate required fields
-    if (!vendor_name) {
+    if (!name) {
       res.status(400).json({
         success: false,
-        error: 'Vendor name is required'
+        error: 'Name is required'
       })
       return
     }
@@ -917,7 +917,7 @@ router.post('/vendors', async (req: Request, res: Response): Promise<void> => {
     const { data: vendor, error } = await supabase
       .from('vendors')
       .insert({
-        vendor_name,
+        name,
         contact_person,
         email,
         phone,
@@ -960,7 +960,7 @@ router.put('/vendors/:id', async (req: Request, res: Response): Promise<void> =>
   try {
     const { id } = req.params
     const {
-      vendor_name,
+      name,
       contact_person,
       email,
       phone,
@@ -975,7 +975,7 @@ router.put('/vendors/:id', async (req: Request, res: Response): Promise<void> =>
       updated_at: new Date().toISOString()
     }
 
-    if (vendor_name !== undefined) updateData.vendor_name = vendor_name
+    if (name !== undefined) updateData.name = name
     if (contact_person !== undefined) updateData.contact_person = contact_person
     if (email !== undefined) updateData.email = email
     if (phone !== undefined) updateData.phone = phone
@@ -1140,11 +1140,13 @@ router.get('/analytics/overview', async (req: Request, res: Response): Promise<v
   try {
     const { start_date, end_date } = req.query
 
+    console.log('Starting financial overview calculation...')
+
     // Get total revenue
+    console.log('Querying payments for revenue...')
     let revenueQuery = supabase
       .from('payments')
       .select('amount')
-      .eq('payment_type', 'received')
       .eq('status', 'completed')
 
     if (start_date && end_date) {
@@ -1156,12 +1158,15 @@ router.get('/analytics/overview', async (req: Request, res: Response): Promise<v
     const { data: revenueData, error: revenueError } = await revenueQuery
 
     if (revenueError) {
+      console.error('Revenue query error:', revenueError)
       throw revenueError
     }
 
     const totalRevenue = revenueData?.reduce((sum, payment) => sum + parseFloat(payment.amount), 0) || 0
+    console.log(`Total revenue calculated: ${totalRevenue}`)
 
     // Get total expenses
+    console.log('Querying expenses...')
     let expensesQuery = supabase
       .from('expenses')
       .select('amount')
@@ -1176,34 +1181,42 @@ router.get('/analytics/overview', async (req: Request, res: Response): Promise<v
     const { data: expensesData, error: expensesError } = await expensesQuery
 
     if (expensesError) {
+      console.error('Expenses query error:', expensesError)
       throw expensesError
     }
 
     const totalExpenses = expensesData?.reduce((sum, expense) => sum + parseFloat(expense.amount), 0) || 0
+    console.log(`Total expenses calculated: ${totalExpenses}`)
 
     // Get active budgets count
+    console.log('Querying active budgets...')
     const { count: activeBudgets, error: budgetsError } = await supabase
       .from('budgets')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'active')
 
     if (budgetsError) {
+      console.error('Budgets query error:', budgetsError)
       throw budgetsError
     }
+    console.log(`Active budgets count: ${activeBudgets}`)
 
     // Get active clients count
+    console.log('Querying active clients...')
     const { count: activeClients, error: clientsError } = await supabase
       .from('clients')
       .select('*', { count: 'exact', head: true })
       .neq('stage', 'lost')
 
     if (clientsError) {
+      console.error('Clients query error:', clientsError)
       throw clientsError
     }
+    console.log(`Active clients count: ${activeClients}`)
 
     const netProfit = totalRevenue - totalExpenses
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0
 
+    console.log('Financial overview calculation completed successfully')
     res.status(200).json({
       success: true,
       data: {
@@ -1236,7 +1249,6 @@ router.get('/analytics/monthly-trends', async (req: Request, res: Response): Pro
     const { data: monthlyRevenue, error: revenueError } = await supabase
       .from('payments')
       .select('amount, payment_date')
-      .eq('payment_type', 'received')
       .eq('status', 'completed')
       .gte('payment_date', `${year}-01-01`)
       .lte('payment_date', `${year}-12-31`)

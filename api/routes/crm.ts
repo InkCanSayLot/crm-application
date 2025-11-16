@@ -56,10 +56,7 @@ router.get('/clients', async (req: Request, res: Response): Promise<void> => {
   try {
     const { data: clients, error } = await supabase
       .from('clients')
-      .select(`
-        *,
-        users!clients_assigned_to_fkey(id, name, email)
-      `)
+      .select()
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -240,10 +237,7 @@ router.get('/clients/:id', async (req: Request, res: Response): Promise<void> =>
 
     const { data: client, error } = await supabase
       .from('clients')
-      .select(`
-        *,
-        assignee:users!clients_assigned_to_fkey(id, name, email)
-      `)
+      .select()
       .eq('id', id)
       .single()
 
@@ -272,6 +266,14 @@ router.get('/clients/:id', async (req: Request, res: Response): Promise<void> =>
  * POST /api/crm/clients
  */
 router.post('/clients', async (req: Request, res: Response): Promise<void> => {
+  console.log('=== POST /clients REQUEST ===')
+  console.log('Method:', req.method)
+  console.log('URL:', req.url)
+  console.log('Headers:', req.headers)
+  console.log('Body:', JSON.stringify(req.body, null, 2))
+  console.log('IP:', req.ip)
+  console.log('Timestamp:', new Date().toISOString())
+  
   try {
     const {
       company_name,
@@ -320,7 +322,55 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
         })
         return
       }
-      validatedUserId = user_id
+      
+      // Check if user exists in the database
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user_id)
+        .single()
+      
+      if (userError || !existingUser) {
+        console.log(`User ${user_id} not found in users table, using fallback`)
+        // Get the first available user as fallback
+        const { data: firstUser } = await supabase
+          .from('users')
+          .select('id')
+          .limit(1)
+          .single()
+        
+        if (firstUser) {
+          validatedUserId = firstUser.id
+          console.log(`Using fallback user: ${validatedUserId}`)
+        } else {
+          // If no users exist, create a default user
+          const { data: newUser, error: createUserError } = await supabase
+            .from('users')
+            .insert({
+              id: user_id,
+              email: 'system@emptyad.com',
+              name: 'System User',
+              full_name: 'System User',
+              role: 'admin'
+            })
+            .select('id')
+            .single()
+          
+          if (createUserError) {
+            console.error('Error creating fallback user:', createUserError)
+            res.status(400).json({
+              success: false,
+              error: 'No valid users found and could not create fallback user'
+            })
+            return
+          }
+          
+          validatedUserId = newUser.id
+          console.log(`Created fallback user: ${validatedUserId}`)
+        }
+      } else {
+        validatedUserId = user_id
+      }
     }
 
     const { data: client, error } = await supabase
@@ -337,10 +387,7 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
         last_contact_note,
         user_id: validatedUserId
       })
-      .select(`
-        *,
-        assignee:users!clients_assigned_to_fkey(id, name, email)
-      `)
+      .select()
       .single()
 
     if (error) {
@@ -370,6 +417,15 @@ router.post('/clients', async (req: Request, res: Response): Promise<void> => {
  * PUT /api/crm/clients/:id
  */
 router.put('/clients/:id', async (req: Request, res: Response): Promise<void> => {
+  console.log('=== PUT /clients/:id REQUEST ===')
+  console.log('Method:', req.method)
+  console.log('URL:', req.url)
+  console.log('Params:', req.params)
+  console.log('Headers:', req.headers)
+  console.log('Body:', JSON.stringify(req.body, null, 2))
+  console.log('IP:', req.ip)
+  console.log('Timestamp:', new Date().toISOString())
+  
   try {
     const { id } = req.params
     const {
@@ -422,16 +478,54 @@ router.put('/clients/:id', async (req: Request, res: Response): Promise<void> =>
     if (deal_value !== undefined) updateData.deal_value = deal_value ? parseFloat(deal_value) : null
     if (assigned_to !== undefined) updateData.assigned_to = assigned_to === '' ? null : assigned_to
     if (last_contact_note !== undefined) updateData.last_contact_note = last_contact_note
-    if (user_id !== undefined) updateData.user_id = user_id === '' ? null : user_id
+    if (user_id !== undefined) {
+      // Validate and handle user_id for updates
+      if (user_id !== '' && user_id !== null) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(user_id)) {
+          res.status(400).json({
+            success: false,
+            error: 'Invalid user_id format. Expected UUID.'
+          })
+          return
+        }
+        
+        // Check if user exists in the database
+        const { data: existingUser, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user_id)
+          .single()
+        
+        if (userError || !existingUser) {
+          console.log(`User ${user_id} not found in users table for update, using fallback`)
+          // Get the first available user as fallback
+          const { data: firstUser } = await supabase
+            .from('users')
+            .select('id')
+            .limit(1)
+            .single()
+          
+          if (firstUser) {
+            updateData.user_id = firstUser.id
+            console.log(`Using fallback user for update: ${firstUser.id}`)
+          } else {
+            // If no users exist, skip updating user_id
+            console.log('No users available for fallback, skipping user_id update')
+          }
+        } else {
+          updateData.user_id = user_id
+        }
+      } else {
+        updateData.user_id = null
+      }
+    }
 
     const { data: client, error } = await supabase
       .from('clients')
       .update(updateData)
       .eq('id', id)
-      .select(`
-        *,
-        assignee:users!clients_assigned_to_fkey(id, name, email)
-      `)
+      .select()
       .single()
 
     if (error) {

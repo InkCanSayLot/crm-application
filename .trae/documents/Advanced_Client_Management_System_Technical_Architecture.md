@@ -45,39 +45,46 @@ graph TD
 
 ## 2. Technology Description
 
-- Frontend: React@18 + TypeScript + TailwindCSS@3 + Vite + Chart.js + React Query
-- Backend: Express@4 + TypeScript + Node.js@18
-- Database: Supabase (PostgreSQL)
-- Cache: Redis for session management and analytics caching
-- File Storage: Supabase Storage for receipts and documents
-- Authentication: Supabase Auth
-- External APIs: Currency exchange rates, email notifications
+* Frontend: React\@18 + TypeScript + TailwindCSS\@3 + Vite + Chart.js + React Query
+
+* Backend: Express\@4 + TypeScript + Node.js\@18
+
+* Database: Supabase (PostgreSQL)
+
+* Cache: Redis for session management and analytics caching
+
+* File Storage: Supabase Storage for receipts and documents
+
+* Authentication: Supabase Auth
+
+* External APIs: Currency exchange rates, email notifications
 
 ## 3. Route Definitions
 
-| Route | Purpose |
-|-------|---------|
-| /dashboard | Main dashboard with financial overview and quick access |
-| /clients | Client list view with search and filtering capabilities |
-| /clients/:id | Detailed client profile with analytics and interaction history |
-| /clients/:id/analytics | Client-specific analytics dashboard |
-| /finances | Financial management hub with budget, payments, and expenses |
-| /finances/budgets | Budget creation, monitoring, and allocation management |
-| /finances/payments | Payment tracking, invoicing, and payment history |
-| /finances/expenses | Expense recording, approval workflows, and vendor management |
-| /analytics | Company-wide analytics and business intelligence dashboard |
-| /analytics/profitability | Client profitability analysis and comparisons |
-| /analytics/cashflow | Cash flow projections and financial forecasting |
-| /reports | Report generation center with export capabilities |
-| /reports/financial | Financial report builder and templates |
-| /reports/audit | Audit trails and compliance reporting |
-| /settings | User profile management and system preferences |
+| Route                    | Purpose                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| /dashboard               | Main dashboard with financial overview and quick access        |
+| /clients                 | Client list view with search and filtering capabilities        |
+| /clients/:id             | Detailed client profile with analytics and interaction history |
+| /clients/:id/analytics   | Client-specific analytics dashboard                            |
+| /finances                | Financial management hub with budget, payments, and expenses   |
+| /finances/budgets        | Budget creation, monitoring, and allocation management         |
+| /finances/payments       | Payment tracking, invoicing, and payment history               |
+| /finances/expenses       | Expense recording, approval workflows, and vendor management   |
+| /analytics               | Company-wide analytics and business intelligence dashboard     |
+| /analytics/profitability | Client profitability analysis and comparisons                  |
+| /analytics/cashflow      | Cash flow projections and financial forecasting                |
+| /reports                 | Report generation center with export capabilities              |
+| /reports/financial       | Financial report builder and templates                         |
+| /reports/audit           | Audit trails and compliance reporting                          |
+| /settings                | User profile management and system preferences                 |
 
 ## 4. API Definitions
 
 ### 4.1 Core API
 
 **Client Management**
+
 ```
 GET /api/clients
 POST /api/clients
@@ -90,6 +97,7 @@ POST /api/clients/:id/interactions
 ```
 
 **Financial Management**
+
 ```
 GET /api/finances/budgets
 POST /api/finances/budgets
@@ -103,6 +111,7 @@ PUT /api/finances/expenses/:id/approve
 ```
 
 **Analytics & Reporting**
+
 ```
 GET /api/analytics/dashboard
 GET /api/analytics/client-profitability
@@ -115,25 +124,29 @@ GET /api/audit/transactions
 ### 4.2 API Request/Response Examples
 
 **Client Analytics Request:**
+
 ```
 GET /api/clients/123/analytics?period=12months
 ```
 
 Request Headers:
-| Header Name | Header Type | isRequired | Description |
-|-------------|-------------|------------|-------------|
-| Authorization | string | true | Bearer token for authentication |
-| Content-Type | string | true | application/json |
+
+| Header Name   | Header Type | isRequired | Description                     |
+| ------------- | ----------- | ---------- | ------------------------------- |
+| Authorization | string      | true       | Bearer token for authentication |
+| Content-Type  | string      | true       | application/json                |
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| revenue | object | Total revenue and breakdown by period |
-| expenses | object | Client-specific expenses and costs |
-| profitability | object | Profit margins and ROI metrics |
-| trends | array | Historical performance data |
+
+| Param Name    | Param Type | Description                           |
+| ------------- | ---------- | ------------------------------------- |
+| revenue       | object     | Total revenue and breakdown by period |
+| expenses      | object     | Client-specific expenses and costs    |
+| profitability | object     | Profit margins and ROI metrics        |
+| trends        | array      | Historical performance data           |
 
 Example Response:
+
 ```json
 {
   "revenue": {
@@ -329,6 +342,7 @@ erDiagram
 ### 6.2 Data Definition Language
 
 **Users Table**
+
 ```sql
 -- Create users table (using existing structure)
 CREATE TABLE users (
@@ -476,3 +490,4 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO authenticated;
 ```
+

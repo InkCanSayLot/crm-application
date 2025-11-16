@@ -1,6 +1,6 @@
 // Use relative API paths for Vercel deployment (proxied through vercel.json rewrites)
 // or full URL for local development
-const API_BASE_URL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api');
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
 
 // Generic API request function with enhanced error handling
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -68,8 +68,12 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
       let errorData = {};
       try {
         const errorText = await response.text();
+        console.log('=== API ERROR RESPONSE ===');
+        console.log('Status:', response.status);
+        console.log('Error text:', errorText);
         if (errorText.trim()) {
           errorData = JSON.parse(errorText);
+          console.log('Parsed error data:', errorData);
         }
       } catch (parseError) {
         console.error('Failed to parse error response:', parseError);

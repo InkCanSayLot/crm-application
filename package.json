@@ -23,6 +23,8 @@
     "postinstall": "npm run check",
     "railway:build": "npm run build:prod",
     "railway:start": "npm run start:prod",
+    "vercel:build": "npm run build && npm run build:server",
+    "vercel:deploy": "npm run vercel:build && vercel --prod",
     "migrate:export": "node scripts/export-supabase-data.js",
     "migrate:import": "node scripts/import-supabase-data.js",
     "migrate:supabase": "node scripts/migrate-supabase.js"

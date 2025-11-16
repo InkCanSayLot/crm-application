@@ -13,10 +13,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY!,
-})
+// Initialize Groq client (optional)
+const groqApiKey = process.env.GROQ_API_KEY
+const groq = groqApiKey ? new Groq({ apiKey: groqApiKey }) : null
 
 // Daily insights endpoint
 router.get('/daily-insights', async (req: Request, res: Response) => {
@@ -48,40 +47,52 @@ router.get('/daily-insights', async (req: Request, res: Response) => {
       timestamp: new Date().toISOString()
     }
 
-    // Generate insights using Groq
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: "You are a business analyst AI. Analyze the provided CRM data and provide actionable insights in JSON format with the following structure: { insights: [{ title: string, description: string, priority: 'high' | 'medium' | 'low', category: 'clients' | 'tasks' | 'payments' | 'general' }], summary: string }"
-        },
-        {
-          role: "user",
-          content: `Analyze this CRM data and provide insights: ${JSON.stringify(dataForAnalysis)}`
-        }
-      ],
-      model: "llama3-8b-8192",
-      temperature: 0.3,
-      max_tokens: 1000,
-    })
-
-    const aiResponse = completion.choices[0]?.message?.content
+    // Generate insights using Groq if available; else provide fallback
     let insights
+    if (groq) {
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content: "You are a business analyst AI. Analyze the provided CRM data and provide actionable insights in JSON format with the following structure: { insights: [{ title: string, description: string, priority: 'high' | 'medium' | 'low', category: 'clients' | 'tasks' | 'payments' | 'general' }], summary: string }"
+          },
+          {
+            role: "user",
+            content: `Analyze this CRM data and provide insights: ${JSON.stringify(dataForAnalysis)}`
+          }
+        ],
+        model: "llama3-8b-8192",
+        temperature: 0.3,
+        max_tokens: 1000,
+      })
 
-    try {
-      insights = JSON.parse(aiResponse || '{}')
-    } catch (parseError) {
-      // Fallback if AI response is not valid JSON
+      const aiResponse = completion.choices[0]?.message?.content
+      try {
+        insights = JSON.parse(aiResponse || '{}')
+      } catch {
+        insights = {
+          insights: [
+            {
+              title: "Data Analysis Complete",
+              description: "Your CRM data has been analyzed. Consider reviewing recent client interactions and task completion rates.",
+              priority: "medium",
+              category: "general"
+            }
+          ],
+          summary: "CRM analysis completed successfully."
+        }
+      }
+    } else {
       insights = {
         insights: [
           {
-            title: "Data Analysis Complete",
-            description: "Your CRM data has been analyzed. Consider reviewing recent client interactions and task completion rates.",
-            priority: "medium",
+            title: "AI Disabled",
+            description: "Insights generated without AI due to missing API key. Recent clients, tasks, and payments loaded successfully.",
+            priority: "low",
             category: "general"
           }
         ],
-        summary: "CRM analysis completed successfully."
+        summary: "Fallback insights provided. Configure GROQ_API_KEY to enable AI analysis."
       }
     }
 

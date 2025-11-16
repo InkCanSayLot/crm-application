@@ -118,7 +118,18 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
         toast.success('Client updated successfully');
       } else {
         // Add new client
-        const data = await crmApi.createClient(formData);
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        const clientData = {
+          ...formData,
+          user_id: user.id // Use current authenticated user ID
+        };
+        console.log('=== FRONTEND CLIENT DATA ===');
+        console.log('Form data:', formData);
+        console.log('Client data being sent:', clientData);
+        console.log('User ID:', user.id);
+        const data = await crmApi.createClient(clientData);
         onClientAdded(data);
         toast.success('Client added successfully');
       }
@@ -136,7 +147,10 @@ export default function AddClientModal({ isOpen, onClose, onClientAdded, editing
         last_contact_note: '',
       });
     } catch (error) {
-      console.error('Error saving client:', error);
+      console.error('=== ERROR SAVING CLIENT ===');
+      console.error('Error object:', error);
+      console.error('Error message:', (error as Error).message);
+      console.error('Error stack:', (error as Error).stack);
       toast.error(editingClient ? 'Failed to update client' : 'Failed to add client');
     } finally {
       setLoading(false);
